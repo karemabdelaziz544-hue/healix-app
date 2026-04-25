@@ -1,24 +1,46 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { useEffect } from 'react';
+import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import { FamilyProvider } from '../src/context/FamilyContext';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+function InitialLayout() {
+  const { session } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const navigationState = useRootNavigationState(); 
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+  useEffect(() => {
+    if (!navigationState?.key) return;
+    const isAuthPage = segments[0] === 'login' || segments[0] === 'signup';
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+    const routingTimer = setTimeout(() => {
+      if (session && isAuthPage) {
+        router.replace('/(tabs)');
+      } else if (!session && !isAuthPage) {
+        router.replace('/login');
+      }
+    }, 10); 
+
+    return () => clearTimeout(routingTimer);
+  }, [session, segments, navigationState?.key]); 
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="login" />
+      <Stack.Screen name="signup" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="subscriptions" /> 
+      <Stack.Screen name="family" /> 
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <FamilyProvider>
+        <InitialLayout />
+      </FamilyProvider>
+    </AuthProvider>
   );
 }

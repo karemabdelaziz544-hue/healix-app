@@ -18,7 +18,7 @@ export default function FamilyScreen() {
                        (!currentProfile.subscription_end_date || new Date(currentProfile.subscription_end_date) > new Date());
 
   const [formData, setFormData] = useState({
-    fullName: '', gender: 'male', height: '', weight: ''
+    fullName: '', gender: 'male', height: '', weight: '', birthYear: '', relation: 'son'
   });
 
   const handleAddMember = async () => {
@@ -30,8 +30,8 @@ export default function FamilyScreen() {
       const { error } = await supabase.rpc('create_sub_member', {
         member_name: formData.fullName,
         member_gender: formData.gender,
-        member_birth: "2000-01-01", 
-        member_relation: "son",
+        member_birth: formData.birthYear ? `${formData.birthYear}-01-01` : '2000-01-01',
+        member_relation: formData.relation,
         member_height: Number(formData.height),
         member_weight: Number(formData.weight)
       });
@@ -40,7 +40,7 @@ export default function FamilyScreen() {
 
       Alert.alert("نجاح", "تم إضافة الفرد بنجاح 🎉");
       setShowForm(false);
-      setFormData({ fullName: '', gender: 'male', height: '', weight: '' });
+      setFormData({ fullName: '', gender: 'male', height: '', weight: '', birthYear: '', relation: 'son' });
       refreshFamily();
 
     } catch (error: any) {
@@ -51,6 +51,17 @@ export default function FamilyScreen() {
   };
 
   const handleDeleteMember = async (id: string) => {
+    // 🛡️ تأمين: التأكد إن المستخدم الحالي هو المدير قبل السماح بالحذف
+    const memberToDelete = familyMembers.find(m => m.id === id);
+    if (!memberToDelete || !memberToDelete.manager_id) {
+      Alert.alert("خطأ", "لا يمكن حذف الحساب الرئيسي.");
+      return;
+    }
+    if (currentProfile?.id !== memberToDelete.manager_id) {
+      Alert.alert("غير مسموح", "فقط صاحب الحساب الرئيسي يمكنه حذف أفراد العائلة.");
+      return;
+    }
+
     Alert.alert("تأكيد الحذف", "هل أنت متأكد من حذف هذا الفرد نهائياً؟", [
       { text: "إلغاء", style: "cancel" },
       { text: "حذف", style: "destructive", onPress: async () => {
@@ -137,6 +148,28 @@ export default function FamilyScreen() {
                 </View>
               </View>
 
+              <View style={styles.row}>
+                <View style={[styles.inputGroup, {flex: 1}]}><Text style={styles.label}>سنة الميلاد</Text><TextInput style={styles.input} placeholder="مثال: 2005" value={formData.birthYear} onChangeText={t => setFormData({...formData, birthYear: t})} keyboardType="numeric" /></View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>العلاقة</Text>
+                <View style={styles.genderToggle}>
+                  {[
+                    { key: 'son', label: 'ابن' },
+                    { key: 'daughter', label: 'ابنة' },
+                    { key: 'husband', label: 'زوج' },
+                    { key: 'wife', label: 'زوجة' },
+                    { key: 'brother', label: 'أخ' },
+                    { key: 'sister', label: 'أخت' },
+                  ].map(rel => (
+                    <TouchableOpacity key={rel.key} style={[styles.relationBtn, formData.relation === rel.key && styles.genderBtnActive]} onPress={() => setFormData({...formData, relation: rel.key})}>
+                      <Text style={[styles.genderText, formData.relation === rel.key && styles.genderTextActive]}>{rel.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
               <TouchableOpacity style={styles.submitBtn} onPress={handleAddMember} disabled={loading}>
                 {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.submitBtnText}>حفظ وإضافة</Text>}
               </TouchableOpacity>
@@ -204,7 +237,7 @@ export default function FamilyScreen() {
                   </View>
 
                   {/* صورة الفرد (أو قفل) */}
-                  <View style={[styles.avatarBox, isActiveProfile && {backgroundColor: '#FFF'}, isLocked && {backgroundColor: '#FEE2E2'}]}>
+                  <View style={[styles.avatarBox, isActiveProfile && {backgroundColor: 'colors.card'}, isLocked && {backgroundColor: '#FEE2E2'}]}>
                     <Ionicons 
                       name={isLocked ? "lock-closed" : "person"} 
                       size={24} 
@@ -267,4 +300,5 @@ const styles = StyleSheet.create({
   switchBtn: { backgroundColor: '#F3F4F6', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
   switchBtnText: { fontSize: 12, fontWeight: 'bold', color: '#4B5563' },
   deleteBtn: { backgroundColor: '#FEF2F2', padding: 6, borderRadius: 8 },
+  relationBtn: { paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
 });

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import ExpiredState from '../../components/ExpiredState';
 
 export default function PlanDetailsScreen() {
   const router = useRouter();

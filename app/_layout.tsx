@@ -1,46 +1,63 @@
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { FamilyProvider } from '../src/context/FamilyContext';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { ThemeProvider } from '../src/context/ThemeContext';
+import OfflineBanner from '../components/OfflineBanner';
+// 🌟 1. مدير الإشعارات
+function PushNotificationManager() {
+  usePushNotifications();
+  return null;
+}
 
-function InitialLayout() {
+// 🌟 2. حارس التوجيه الذكي المُعدل (Auth Guard)
+function AuthGuard() {
   const { session } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-  const navigationState = useRootNavigationState(); 
+  const navigationState = useRootNavigationState();
+  const [isReady, setIsReady] = useState(false);
+
+  // 👈 التأكد من جاهزية الـ Router قبل التوجيه
+  useEffect(() => {
+    if (navigationState?.key) {
+      // ننتظر جزء صغير جداً من الثانية لضمان رسم الـ Layout بالكامل
+      const timeout = setTimeout(() => setIsReady(true), 100); 
+      return () => clearTimeout(timeout);
+    }
+  }, [navigationState?.key]);
 
   useEffect(() => {
-    if (!navigationState?.key) return;
-    const isAuthPage = segments[0] === 'login' || segments[0] === 'signup';
+    if (!isReady) return; // لا تفعل شيء حتى يكون الـ Router جاهز تماماً
 
-    const routingTimer = setTimeout(() => {
-      if (session && isAuthPage) {
-        router.replace('/(tabs)');
-      } else if (!session && !isAuthPage) {
-        router.replace('/login');
-      }
-    }, 10); 
+    const inAuthGroup = segments[0] === 'login' || segments[0] === 'signup';
 
-    return () => clearTimeout(routingTimer);
-  }, [session, segments, navigationState?.key]); 
+    if (!session && !inAuthGroup) {
+      router.replace('/login');
+    } else if (session && inAuthGroup) {
+      router.replace('/(tabs)');
+    }
+  }, [session, segments, isReady]);
 
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="signup" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="subscriptions" /> 
-      <Stack.Screen name="family" /> 
-    </Stack>
-  );
+  return null;
 }
 
 export default function RootLayout() {
   return (
-    <AuthProvider>
-      <FamilyProvider>
-        <InitialLayout />
-      </FamilyProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <FamilyProvider>
+          <ThemeProvider>
+          <AuthGuard />
+          <PushNotificationManager />
+          
+          <Stack screenOptions={{ headerShown: false }} />
+          <OfflineBanner />
+          </ThemeProvider>
+        </FamilyProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

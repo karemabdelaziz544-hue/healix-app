@@ -2,28 +2,38 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useFamily } from '../../src/context/FamilyContext';
 
 const { width } = Dimensions.get('window');
 const TAB_BAR_WIDTH = width - 40; 
-// 👇 التعديل هنا: قسمنا على 5 لأن بقى عندنا 5 تابات بدل 4
-const TAB_WIDTH = TAB_BAR_WIDTH / 5; 
+const TAB_WIDTH = TAB_BAR_WIDTH / 5; // ثابت على 5 تابات للحفاظ على التوازن
 
 function CustomTabBar({ state, descriptors, navigation }: any) {
+  const { currentProfile, switchProfile } = useFamily();
+  const isSubAccount = currentProfile?.manager_id !== null && currentProfile?.manager_id !== undefined;
+
   const visibleRoutes = state.routes.filter((route: any) => route.name !== 'plan-details');
   const translateX = useRef(new Animated.Value(0)).current;
   const currentRouteName = state.routes[state.index].name;
+  
   const activeIndex = visibleRoutes.findIndex((r: any) => r.name === currentRouteName);
+  // 🛡️ حماية الأنيميشن: لو الصفحة مخفية نثبت المؤشر على الرئيسية
+  const safeActiveIndex = activeIndex !== -1 ? activeIndex : 0; 
 
   useEffect(() => {
-    if (activeIndex !== -1) {
-      Animated.spring(translateX, {
-        toValue: activeIndex * TAB_WIDTH,
-        useNativeDriver: true,
-        bounciness: 12, 
-        speed: 14,      
-      }).start();
+    Animated.spring(translateX, {
+      toValue: safeActiveIndex * TAB_WIDTH,
+      useNativeDriver: true,
+      bounciness: 12, 
+      speed: 14,      
+    }).start();
+  }, [safeActiveIndex]);
+
+  const handleSwitchBack = async () => {
+    if (currentProfile?.manager_id) {
+      await switchProfile(currentProfile.manager_id);
     }
-  }, [activeIndex]);
+  };
 
   return (
     <View style={styles.tabBarContainer}>
@@ -35,27 +45,38 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       />
 
       {visibleRoutes.map((route: any, index: number) => {
-        const isFocused = activeIndex === index;
+        const isFocused = safeActiveIndex === index;
 
         const onPress = () => {
-          const event = navigation.emit({
-            type: 'tabPress',
-            target: route.key,
-            canPreventDefault: true,
-          });
-
-          if (!isFocused && !event.defaultPrevented) {
-            navigation.navigate(route.name);
+          // لو الحساب فرعي وضغط على أيقونة البروفايل، نفذ التبديل بدل التنقل
+          if (route.name === 'profile' && isSubAccount) {
+            handleSwitchBack();
+          } else {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
           }
         };
 
-        // 👇 التعديل هنا: ضفنا الأيقونة بتاعة medical
         let iconName: any = 'home';
         if (route.name === 'index') iconName = isFocused ? 'home' : 'home-outline';
         if (route.name === 'chat') iconName = isFocused ? 'chatbubbles' : 'chatbubbles-outline';
         if (route.name === 'medical') iconName = isFocused ? 'pulse' : 'pulse-outline';
         if (route.name === 'history') iconName = isFocused ? 'time' : 'time-outline';
-        if (route.name === 'profile') iconName = isFocused ? 'person' : 'person-outline';
+        
+        // 🎨 أيقونة البروفايل الديناميكية
+        if (route.name === 'profile') {
+          if (isSubAccount) {
+            iconName = 'swap-horizontal-outline'; // أيقونة التبديل للحساب الفرعي
+          } else {
+            iconName = isFocused ? 'person' : 'person-outline';
+          }
+        }
 
         return (
           <TouchableOpacity
@@ -64,7 +85,11 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             style={styles.tabItem}
             activeOpacity={1} 
           >
-            <Ionicons name={iconName} size={26} color={isFocused ? '#FFF' : '#9CA3AF'} />
+            <Ionicons 
+              name={iconName} 
+              size={26} 
+              color={isFocused ? '#FFF' : (route.name === 'profile' && isSubAccount ? '#F97316' : '#9CA3AF')} 
+            />
           </TouchableOpacity>
         );
       })}
@@ -80,7 +105,6 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="chat" />
-      {/* 👇 التعديل هنا: تسجيل مسار medical */}
       <Tabs.Screen name="medical" />
       <Tabs.Screen name="history" />
       <Tabs.Screen name="profile" />
@@ -88,6 +112,8 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const INDICATOR_SIZE = 50;
 
 const styles = StyleSheet.create({
   tabBarContainer: {
@@ -115,16 +141,13 @@ const styles = StyleSheet.create({
   },
   slidingIndicator: {
     position: 'absolute',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: INDICATOR_SIZE,
+    height: INDICATOR_SIZE,
+    borderRadius: INDICATOR_SIZE / 2,
     backgroundColor: '#2A4B46',
-    left: (TAB_WIDTH - 50) / 2, 
+    // حساب ديناميكي: المركز = (عرض التاب - عرض المؤشر) / 2
+    left: (TAB_WIDTH - INDICATOR_SIZE) / 2, 
     zIndex: 0, 
     elevation: 8,
-    shadowColor: '#2A4B46',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
   },
 });

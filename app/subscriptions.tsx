@@ -12,7 +12,6 @@ const PRICING = { base: 500, extra: 150 };
 export default function SubscriptionsScreen() {
   const router = useRouter();
   
-  // 👈 بنجيب كل بيانات العائلة من الـ Context
   const { currentProfile, familyMembers } = useFamily();
   const userId = currentProfile?.id;
 
@@ -22,11 +21,9 @@ export default function SubscriptionsScreen() {
   const [history, setHistory] = useState<any[]>([]);
   const [pendingRequest, setPendingRequest] = useState<any>(null);
 
-  // حسابات الأفراد
   const subMembers = familyMembers.filter(m => m.manager_id === userId);
   const subAccountsCount = subMembers.length;
 
-  // 👈 حالة فورم التجديد متعدد الخطوات
   const [showRenewForm, setShowRenewForm] = useState(false);
   const [step, setStep] = useState(1);
   const [newSubCount, setNewSubCount] = useState(0);
@@ -36,7 +33,7 @@ export default function SubscriptionsScreen() {
 
   useEffect(() => {
     if (userId) {
-      setNewSubCount(subAccountsCount); // تهيئة العداد بالعدد الحالي
+      setNewSubCount(subAccountsCount);
       fetchData();
     }
   }, [userId, subAccountsCount]);
@@ -65,20 +62,16 @@ export default function SubscriptionsScreen() {
   const isSubAccount = currentProfile?.manager_id !== null;
   const totalPrice = PRICING.base + (newSubCount * PRICING.extra);
 
-  // 🔥 الخطوة 1: معالجة ضغطة زر "التالي"
   const handleNextStep = () => {
     if (step === 1) {
       if (newSubCount < subAccountsCount) {
-        // لو قلل العدد، لازم يختار مين اللي هيفضل (الخطوة 2)
         setSelectedMembersToKeep([]);
         setStep(2);
       } else {
-        // لو العدد ثابت أو زاد، نحتفظ بكل الحاليين ونروح للدفع (الخطوة 3)
         setSelectedMembersToKeep(subMembers.map(m => m.id));
         setStep(3);
       }
     } else if (step === 2) {
-      // التأكد إنه اختار العدد المطلوب بالظبط
       if (selectedMembersToKeep.length !== newSubCount) {
         return Alert.alert("تنبيه", `يرجى اختيار ${newSubCount} أفراد للإبقاء عليهم.`);
       }
@@ -86,7 +79,6 @@ export default function SubscriptionsScreen() {
     }
   };
 
-  // 🔥 دالة اختيار/إلغاء اختيار الأفراد
   const toggleMemberSelection = (id: string) => {
     setSelectedMembersToKeep(prev => {
       if (prev.includes(id)) {
@@ -102,19 +94,23 @@ export default function SubscriptionsScreen() {
     });
   };
 
+  // 👇 التعديل المطلوب: تفعيل اختيار الصور والـ PDF معاً
   const handlePickReceipt = async () => {
-    const result = await DocumentPicker.getDocumentAsync({ type: 'image/*' });
-    if (!result.canceled && result.assets.length > 0) {
+    const result = await DocumentPicker.getDocumentAsync({ 
+      type: ['image/*', 'application/pdf'],
+      copyToCacheDirectory: true,
+    });
+    
+    if (!result.canceled && result.assets && result.assets.length > 0) {
       setReceiptFile(result.assets[0]);
     }
   };
 
-  // 🔥 الإرسال النهائي للداتابيز
   const handleSubmitRequest = async () => {
     if (!receiptFile) return Alert.alert("تنبيه", "يرجى إرفاق صورة الإيصال أولاً");
     setUploading(true);
     try {
-      const fileExt = receiptFile.name.split('.').pop();
+      const fileExt = receiptFile.name.split('.').pop() || 'jpg';
       const fileName = `payment_${userId}_${Date.now()}.${fileExt}`;
       
       const response = await fetch(receiptFile.uri);
@@ -131,7 +127,7 @@ export default function SubscriptionsScreen() {
         receipt_url: fileName,
         renewal_metadata: { 
           sub_count: newSubCount,
-          keep_member_ids: selectedMembersToKeep, // 👈 السر هنا: إرسال الحسابات اللي هتكمل
+          keep_member_ids: selectedMembersToKeep,
           action_type: newSubCount < subAccountsCount ? 'downgrade' : 'upgrade'
         }
       }]);
@@ -177,10 +173,11 @@ export default function SubscriptionsScreen() {
             <Text style={styles.alertStep}>• أو تحدث مع خدمة عملائنا للمساعدة</Text>
           </View>
 
-<TouchableOpacity style={styles.alertBtn} onPress={() => router.replace('/chat')}>
-  <Text style={styles.alertBtnText}>تحدث مع خدمة العملاء</Text>
-  <Ionicons name="chatbubbles" size={20} color="#FFF" />
-</TouchableOpacity>        </View>
+          <TouchableOpacity style={styles.alertBtn} onPress={() => router.replace('/chat')}>
+            <Text style={styles.alertBtnText}>تحدث مع خدمة العملاء</Text>
+            <Ionicons name="chatbubbles" size={20} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
@@ -286,7 +283,7 @@ export default function SubscriptionsScreen() {
                   </View>
                 )}
 
-                {/* الخطوة 2: اختيار الأفراد المستبعدين (تظهر فقط لو قلل العدد) */}
+                {/* الخطوة 2: اختيار الأفراد المستبعدين */}
                 {step === 2 && (
                   <View style={styles.stepContainer}>
                     <View style={styles.alertSoftBox}>
@@ -335,7 +332,7 @@ export default function SubscriptionsScreen() {
                     <TouchableOpacity style={styles.uploadBtn} onPress={handlePickReceipt}>
                       <Ionicons name={receiptFile ? "checkmark-circle" : "cloud-upload"} size={40} color={receiptFile ? "#10B981" : "#9CA3AF"} />
                       <Text style={[styles.uploadText, receiptFile && {color: '#10B981'}]}>
-                        {receiptFile ? receiptFile.name : 'اضغط لإرفاق إيصال التحويل'}
+                        {receiptFile ? receiptFile.name : 'اضغط لإرفاق صورة أو إيصال التحويل'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -496,7 +493,6 @@ const styles = StyleSheet.create({
   historyPlanName: { fontSize: 15, fontWeight: 'bold', color: '#1F2937', marginBottom: 5 },
   historyDate: { fontSize: 12, color: '#9CA3AF', fontWeight: 'bold' },
 
-  // تنسيقات شاشة التحذير (Locked Screen)
   alertContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
   alertIconBox: { width: 100, height: 100, backgroundColor: '#FEE2E2', borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   alertTitle: { fontSize: 24, fontWeight: '900', color: '#1F2937', marginBottom: 10, textAlign: 'center' },

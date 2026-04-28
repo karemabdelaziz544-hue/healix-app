@@ -1,0 +1,124 @@
+// ============================================
+// 🏋️ Healix Mobile — TypeScript Type Definitions
+// ============================================
+
+// ======== Plan & Tasks ========
+
+export interface Plan {
+  id: string;
+  user_id: string;
+  title: string | null;
+  status: 'active' | 'completed' | 'archived';
+  start_date: string | null;
+  created_at: string;
+  updated_at?: string;
+  plan_tasks?: { count: number }[];
+}
+
+export interface PlanTask {
+  id: string;
+  plan_id: string;
+  day_name: string | null;
+  content: string;
+  task_type: 'workout' | 'nutrition' | string;
+  is_completed: boolean;
+  order_index: number;
+  created_at?: string;
+}
+
+// ======== InBody & Medical ========
+
+export interface InbodyRecord {
+  id: string;
+  user_id: string;
+  weight: number;
+  muscle_mass: number | null;
+  fat_percent: number | null;
+  record_date: string;
+  ai_summary: string | null;
+  image_url: string | null;
+  created_at?: string;
+}
+
+export interface ClientDocument {
+  id: string;
+  user_id: string;
+  file_name: string;
+  file_url: string;
+  file_type?: string;
+  created_at: string;
+}
+
+export interface HealthProfile {
+  id?: string;
+  user_id: string;
+  diseases: string[];
+  has_allergies: boolean;
+  allergies_details: string;
+  diet_type: string;
+  family_history: string[];
+  medications: string;
+}
+
+export interface LifestyleProfile {
+  id?: string;
+  user_id: string;
+  goal: string;
+  meals_per_day: string;
+  has_breakfast: boolean;
+  has_snacks: boolean;
+  late_night_eating: boolean;
+  favorite_foods: string;
+  disliked_foods: string;
+  water_liters: number;
+  beverages: string[];
+  activity_level: string;
+  does_exercise: boolean;
+  exercise_details: {
+    type: string;
+    days: string;
+  };
+  sleep_hours: number;
+  sleep_quality: string;
+  smoker: boolean;
+  stress_level: string;
+}
+
+// ======== Chat & Messages ========
+
+export interface Message {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string | null;
+  attachment_url: string | null;
+  attachment_type: 'image' | 'audio' | 'file' | null;
+  recipient_type: 'doctor' | 'admin';
+  is_read: boolean;
+  created_at: string;
+}
+
+// ======== Notifications ========
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: 'plan' | 'chat' | 'alert' | 'general';
+  link: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+// ======== Streak / Gamification ========
+
+export interface DailyLog {
+  id: string;
+  user_id: string;
+  log_date: string;
+  all_tasks_completed: boolean;
+  tasks_completed: number;
+  tasks_total: number;
+  created_at?: string;
+}

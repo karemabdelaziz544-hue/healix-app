@@ -1,26 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
-import { useAuth } from '../../src/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { useFamily } from '../../src/context/FamilyContext';
+import { useSubscriptionGuard } from '../../hooks/useSubscriptionGuard';
+import ExpiredState from '../../components/ExpiredState';
+import Skeleton from '../../components/Skeleton';
+import type { Plan } from '../../src/types';
+
 export default function HistoryScreen() {
-const { currentProfile } = useFamily();
-const currentUserId = currentProfile?.id;
+  const { currentProfile } = useFamily();
+  const currentUserId = currentProfile?.id;
   const router = useRouter();
-
-  const [plans, setPlans] = useState<any[]>([]);
+  const { isSubscribed, isGuardLoading } = useSubscriptionGuard();
+  const insets = useSafeAreaInsets();
+  
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentUserId) fetchHistory();
-  }, [currentUserId]);
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
         .from('plans')
         .select('*, plan_tasks (count)') 
@@ -34,10 +36,29 @@ const currentUserId = currentProfile?.id;
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (currentUserId) {
+      setLoading(true);
+      fetchHistory();
+    }
+  }, [currentUserId, fetchHistory]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchHistory();
+    setRefreshing(false);
+  }, [fetchHistory]);
+
+  // 🛡️ حماية الاشتراك تظهر فقط بعد انتهاء فحص الحارس
+  if (!isGuardLoading && !isSubscribed) {
+    return <ExpiredState />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* الهيدر ثابت وبيظهر دايماً */}
       <View style={styles.header}>
         <View style={styles.titleRowMain}>
           <Ionicons name="time-outline" size={28} color="#F97316" />
@@ -46,30 +67,33 @@ const currentUserId = currentProfile?.id;
         <Text style={styles.subtitle}>سجل كامل لجميع خططك الغذائية والتدريبية</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#2A4B46" />
-          <Text style={styles.loadingText}>جاري تحميل الأرشيف...</Text>
-        </View>
+      {/* 🌟 دمجنا لودينج الحارس مع لودينج الداتا وعرضنا الـ Skeleton */}
+      {loading || isGuardLoading ? (
+        <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 90 }]} showsVerticalScrollIndicator={false}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} width="100%" height={90} borderRadius={20} style={{ marginBottom: 15 }} />
+          ))}
+        </ScrollView>
       ) : plans.length === 0 ? (
-        <View style={styles.centerContent}>
+        <ScrollView contentContainerStyle={styles.centerContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316']} />}>
           <Ionicons name="document-text-outline" size={60} color="#D1D5DB" />
           <Text style={styles.emptyText}>لا يوجد سجل تاريخي حتى الآن.</Text>
-        </View>
+        </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 90 }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#F97316', '#2A4B46']} tintColor="#2A4B46" />}
+        >
           {plans.map((plan) => {
             const isCurrent = plan.status === 'active';
             const taskCount = plan.plan_tasks?.[0]?.count || 0;
 
             return (
               <TouchableOpacity 
-                key={plan.id} 
-                style={[styles.planCard, isCurrent && styles.currentPlanCard]}
-                activeOpacity={0.8}
+                key={plan.id} style={[styles.planCard, isCurrent && styles.currentPlanCard]} activeOpacity={0.8}
                 onPress={() => router.push({ pathname: '/(tabs)/plan-details', params: { planId: plan.id } })} 
               >
-                
                 <View style={styles.cardLeft}>
                   <View style={[styles.taskCountBadge, isCurrent && styles.taskCountBadgeCurrent]}>
                     <Text style={[styles.taskCountText, isCurrent && styles.taskCountTextCurrent]}>{taskCount} مهمة</Text>
@@ -79,18 +103,11 @@ const currentUserId = currentProfile?.id;
 
                 <View style={styles.cardRight}>
                   <View style={styles.titleRow}>
-                    {isCurrent && (
-                      <View style={styles.activeTag}>
-                        <Text style={styles.activeTagText}>الحالية</Text>
-                      </View>
-                    )}
+                    {isCurrent && <View style={styles.activeTag}><Text style={styles.activeTagText}>الحالية</Text></View>}
                     <Text style={[styles.planTitle, isCurrent && styles.planTitleCurrent]}>{plan.title || 'خطة بدون اسم'}</Text>
                   </View>
-                  
                   <View style={styles.dateRow}>
-                    <Text style={styles.dateText}>
-                      {new Date(plan.created_at).toLocaleDateString('ar-EG')}
-                    </Text>
+                    <Text style={styles.dateText}>{new Date(plan.created_at).toLocaleDateString('ar-EG')}</Text>
                     <Ionicons name="calendar-outline" size={14} color="#9CA3AF" />
                   </View>
                 </View>
@@ -98,7 +115,6 @@ const currentUserId = currentProfile?.id;
                 <View style={[styles.iconBox, isCurrent && styles.iconBoxCurrent]}>
                   <Ionicons name="document-text" size={24} color={isCurrent ? "#F97316" : "#6B7280"} />
                 </View>
-
               </TouchableOpacity>
             );
           })}
@@ -115,11 +131,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '900', color: '#2A4B46', marginLeft: 8 },
   subtitle: { fontSize: 14, color: '#6B7280', fontWeight: 'bold' },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, color: '#6B7280', fontWeight: 'bold' },
   emptyText: { marginTop: 15, color: '#9CA3AF', fontSize: 16, fontWeight: 'bold' },
-  scrollContent: { padding: 15 },
+  scrollContent: { padding: 15, paddingBottom: 100 }, // Note: paddingBottom is overridden dynamically
   planCard: { flexDirection: 'row', backgroundColor: '#FFF', padding: 20, borderRadius: 20, marginBottom: 15, alignItems: 'center', borderWidth: 1, borderColor: '#F3F4F6', elevation: 1 },
-  currentPlanCard: { borderColor: '#F97316', borderWidth: 1.5, elevation: 3, shadowColor: '#F97316', shadowOpacity: 0.1, shadowRadius: 10 },
+  currentPlanCard: { borderColor: '#F97316', borderWidth: 1.5, elevation: 3 },
   cardRight: { flex: 1, alignItems: 'flex-end', paddingRight: 15 },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
   planTitle: { fontSize: 16, fontWeight: 'bold', color: '#1F2937', marginLeft: 8 },

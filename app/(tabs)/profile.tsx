@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
-import { decode } from 'base64-arraybuffer'; // هنحتاجها عشان نرفع الصورة من الموبايل
-import { useRouter } from 'expo-router';
+import { decode } from 'base64-arraybuffer';
+import { useRouter, Redirect } from 'expo-router'; // 👈 إضافة Redirect هنا
 import { useFamily } from '../../src/context/FamilyContext';
 
 export default function ProfileScreen() {
-  const router = useRouter(); // 👈 السطر اللي ضفناه
+  const router = useRouter();
   const { session } = useAuth();
   const user = session?.user;
+  const { currentProfile } = useFamily();
+  const insets = useSafeAreaInsets();
+
+  // 👈 التأكد إذا كان الحساب فرعي
+  const isSubAccount = currentProfile?.manager_id !== null && currentProfile?.manager_id !== undefined;
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -23,10 +28,12 @@ export default function ProfileScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // 1. جلب بيانات البروفايل أول ما الشاشة تفتح
+  // حالة التحكم في القوائم المنسدلة (Accordion)
+  const [activeSection, setActiveSection] = useState<'profile' | 'security' | null>(null);
+
   useEffect(() => {
-    if (user) fetchProfile();
-  }, [user]);
+    if (user && !isSubAccount) fetchProfile();
+  }, [user, isSubAccount]);
 
   const fetchProfile = async () => {
     try {
@@ -43,7 +50,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // 2. تحديث الاسم
   const handleUpdateProfile = async () => {
     if (!user?.id) return;
     setLoading(true);
@@ -57,6 +63,7 @@ export default function ProfileScreen() {
       const { error } = await supabase.from('profiles').upsert(updates);
       if (error) throw error;
       Alert.alert('نجاح', 'تم تحديث الملف الشخصي بنجاح! 🎉');
+      setActiveSection(null);
     } catch (error: any) {
       Alert.alert('خطأ', 'فشل التحديث: ' + error.message);
     } finally {
@@ -64,22 +71,19 @@ export default function ProfileScreen() {
     }
   };
 
-  // 3. اختيار صورة من الاستوديو ورفعها
   const handleAvatarUpload = async () => {
-    // طلب إذن الدخول للاستوديو
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
       Alert.alert('تنبيه', 'يجب إعطاء صلاحية الوصول للصور لتتمكن من تغيير صورتك.');
       return;
     }
 
-    // فتح الاستوديو
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.5, // تقليل الجودة لسرعة الرفع
-      base64: true, // ضروري عشان نرفعها لـ Supabase من الموبايل
+      quality: 0.5,
+      base64: true,
     });
 
     if (pickerResult.canceled || !pickerResult.assets[0].base64) return;
@@ -90,14 +94,12 @@ export default function ProfileScreen() {
       const fileExt = pickerResult.assets[0].uri.split('.').pop() || 'jpeg';
       const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
 
-      // رفع الصورة باستخدام base64-arraybuffer
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, decode(base64FileData), { contentType: `image/${fileExt}` });
 
       if (uploadError) throw uploadError;
 
-      // الحصول على الرابط العام
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
 
       setAvatarUrl(publicUrl);
@@ -110,7 +112,6 @@ export default function ProfileScreen() {
     }
   };
 
-  // 4. تغيير كلمة المرور
   const handleChangePassword = async () => {
     if (!newPassword) return;
     if (newPassword !== confirmPassword) return Alert.alert('تنبيه', 'كلمات المرور غير متطابقة');
@@ -123,6 +124,7 @@ export default function ProfileScreen() {
       Alert.alert('نجاح', 'تم تغيير كلمة المرور بنجاح! 🔒');
       setNewPassword('');
       setConfirmPassword('');
+      setActiveSection(null);
     } catch (error: any) {
       Alert.alert('خطأ', 'فشل التغيير: ' + error.message);
     } finally {
@@ -130,15 +132,18 @@ export default function ProfileScreen() {
     }
   };
 
-  // 5. تسجيل الخروج
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      // المايسترو (AuthContext) هيتصرف ويطرد العميل بره أوتوماتيك!
     } catch (err) {
       console.log('Error logging out:', err);
     }
   };
+
+  // 🔥 لو الحساب فرعي وحاول يدخل الصفحة دي (حتى لو بزرار الرجوع)، اطرده للرئيسية فوراً
+  if (isSubAccount) {
+    return <Redirect href="/" />;
+  }
 
   if (fetching) {
     return (
@@ -150,112 +155,119 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 90 }]} showsVerticalScrollIndicator={false}>
         
         <Text style={styles.pageTitle}>إعدادات الحساب</Text>
 
-        {/* --- كارت البيانات الشخصية والصورة --- */}
-        <View style={styles.card}>
-          
-          {/* الصورة */}
-          <View style={styles.avatarSection}>
-            <TouchableOpacity style={styles.avatarWrapper} onPress={handleAvatarUpload} disabled={loading}>
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarPlaceholder}>
-                  <Text style={styles.avatarInitial}>{fullName ? fullName[0].toUpperCase() : 'H'}</Text>
-                </View>
-              )}
-              
-              <View style={styles.cameraIconBadge}>
-                <Ionicons name="camera" size={18} color="#FFF" />
-              </View>
-
-              {loading && (
-                <View style={styles.loadingOverlay}>
-                  <ActivityIndicator size="small" color="#F97316" />
-                </View>
-              )}
-            </TouchableOpacity>
-            <Text style={styles.avatarHint}>اضغط على الصورة للتغيير</Text>
-          </View>
-
-          {/* الخانات */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>الاسم بالكامل</Text>
-            <TextInput 
-              style={styles.input} 
-              value={fullName} 
-              onChangeText={setFullName} 
-              placeholder="اكتب اسمك هنا"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>البريد الإلكتروني (غير قابل للتعديل)</Text>
-            <TextInput 
-              style={[styles.input, styles.disabledInput]} 
-              value={user?.email || ''} 
-              editable={false} 
-            />
-          </View>
-
-          <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateProfile} disabled={loading}>
-            <Text style={styles.saveBtnText}>حفظ التغييرات</Text>
-            <Ionicons name="save-outline" size={20} color="#FFF" />
-          </TouchableOpacity>
-        </View>
-
-        {/* --- كارت كلمة المرور --- */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>الأمان وكلمة المرور</Text>
-            <Ionicons name="lock-closed" size={20} color="#F97316" />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>كلمة المرور الجديدة</Text>
-            <TextInput 
-              style={styles.input} 
-              value={newPassword} 
-              onChangeText={setNewPassword} 
-              placeholder="••••••••"
-              secureTextEntry
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>تأكيد كلمة المرور</Text>
-            <TextInput 
-              style={styles.input} 
-              value={confirmPassword} 
-              onChangeText={setConfirmPassword} 
-              placeholder="••••••••"
-              secureTextEntry
-            />
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.outlineBtn, (!newPassword || loading) && { opacity: 0.5 }]} 
-            onPress={handleChangePassword} 
-            disabled={!newPassword || loading}
-          >
-            <Text style={styles.outlineBtnText}>تحديث كلمة المرور</Text>
-          </TouchableOpacity>
-        </View>
-<TouchableOpacity style={styles.subBtn} onPress={() => router.push('/subscriptions')}>
+        {/* 1. زرار تعديل البيانات الشخصية */}
+        <TouchableOpacity 
+          style={[styles.subBtn, activeSection === 'profile' && styles.subBtnActive]} 
+          onPress={() => setActiveSection(activeSection === 'profile' ? null : 'profile')}
+        >
           <View style={styles.subBtnLeft}>
-            <Ionicons name="chevron-back" size={20} color="#F97316" />
+            <Ionicons name={activeSection === 'profile' ? "chevron-down" : "chevron-back"} size={20} color="#2A4B46" />
+          </View>
+          <View style={styles.subBtnRight}>
+            <Text style={styles.subBtnTitle}>البيانات والصورة</Text>
+            <Text style={styles.subBtnDesc}>تعديل الاسم والصورة الشخصية</Text>
+          </View>
+          <View style={[styles.subBtnIcon, {backgroundColor: '#2A4B46'}]}>
+            <Ionicons name="person" size={24} color="#FFF" />
+          </View>
+        </TouchableOpacity>
+
+        {/* فورم البيانات الشخصية */}
+        {activeSection === 'profile' && (
+          <View style={styles.expandedCard}>
+            <View style={styles.avatarSection}>
+              <TouchableOpacity style={styles.avatarWrapper} onPress={handleAvatarUpload} disabled={loading}>
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Text style={styles.avatarInitial}>{fullName ? fullName[0].toUpperCase() : 'H'}</Text>
+                  </View>
+                )}
+                <View style={styles.cameraIconBadge}>
+                  <Ionicons name="camera" size={18} color="#FFF" />
+                </View>
+                {loading && (
+                  <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="small" color="#F97316" />
+                  </View>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.avatarHint}>اضغط على الصورة للتغيير</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>الاسم بالكامل</Text>
+              <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="اكتب اسمك هنا" />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>البريد الإلكتروني (غير قابل للتعديل)</Text>
+              <TextInput style={[styles.input, styles.disabledInput]} value={user?.email || ''} editable={false} />
+            </View>
+
+            <TouchableOpacity style={styles.saveBtn} onPress={handleUpdateProfile} disabled={loading}>
+              <Text style={styles.saveBtnText}>حفظ التغييرات</Text>
+              <Ionicons name="save-outline" size={20} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 2. زرار الأمان وكلمة المرور */}
+        <TouchableOpacity 
+          style={[styles.subBtn, activeSection === 'security' && styles.subBtnActive]} 
+          onPress={() => setActiveSection(activeSection === 'security' ? null : 'security')}
+        >
+          <View style={styles.subBtnLeft}>
+            <Ionicons name={activeSection === 'security' ? "chevron-down" : "chevron-back"} size={20} color="#F97316" />
+          </View>
+          <View style={styles.subBtnRight}>
+            <Text style={styles.subBtnTitle}>الأمان وكلمة المرور</Text>
+            <Text style={styles.subBtnDesc}>تغيير كلمة المرور الخاصة بحسابك</Text>
+          </View>
+          <View style={[styles.subBtnIcon, {backgroundColor: '#F97316'}]}>
+            <Ionicons name="lock-closed" size={24} color="#FFF" />
+          </View>
+        </TouchableOpacity>
+
+        {/* فورم كلمة المرور */}
+        {activeSection === 'security' && (
+          <View style={styles.expandedCard}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>كلمة المرور الجديدة</Text>
+              <TextInput style={styles.input} value={newPassword} onChangeText={setNewPassword} placeholder="••••••••" secureTextEntry />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>تأكيد كلمة المرور</Text>
+              <TextInput style={styles.input} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="••••••••" secureTextEntry />
+            </View>
+
+            <TouchableOpacity style={[styles.outlineBtn, (!newPassword || loading) && { opacity: 0.5 }]} onPress={handleChangePassword} disabled={!newPassword || loading}>
+              <Text style={styles.outlineBtnText}>تحديث كلمة المرور</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* 3. إدارة الاشتراك */}
+        <TouchableOpacity style={styles.subBtn} onPress={() => router.push('/subscriptions')}>
+          <View style={styles.subBtnLeft}>
+            <Ionicons name="chevron-back" size={20} color="#2A4B46" />
           </View>
           <View style={styles.subBtnRight}>
             <Text style={styles.subBtnTitle}>إدارة الاشتراك</Text>
-            <Text style={styles.subBtnDesc}>تجديد، تعديل الباقة، والسجل المالي</Text>
+            <Text style={styles.subBtnDesc}>تجديد، تعديل الباقة، وتأكيد الدفع</Text>
           </View>
-          <View style={styles.subBtnIcon}>
+          <View style={[styles.subBtnIcon, {backgroundColor: '#2A4B46'}]}>
             <Ionicons name="card" size={24} color="#FFF" />
           </View>
         </TouchableOpacity>
+
+        {/* 4. إدارة العائلة */}
         <TouchableOpacity style={styles.subBtn} onPress={() => router.push('/family')}>
           <View style={styles.subBtnLeft}>
             <Ionicons name="chevron-back" size={20} color="#F97316" />
@@ -264,11 +276,12 @@ export default function ProfileScreen() {
             <Text style={styles.subBtnTitle}>إدارة العائلة</Text>
             <Text style={styles.subBtnDesc}>أضف وبدل بين أفراد عائلتك</Text>
           </View>
-          <View style={[styles.subBtnIcon, {backgroundColor: '#2A4B46'}]}>
+          <View style={[styles.subBtnIcon, {backgroundColor: '#F97316'}]}>
             <Ionicons name="people" size={24} color="#FFF" />
           </View>
         </TouchableOpacity>
-        {/* --- زر تسجيل الخروج --- */}
+
+        {/* زر تسجيل الخروج */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutBtnText}>تسجيل الخروج</Text>
           <Ionicons name="log-out-outline" size={22} color="#EF4444" />
@@ -282,21 +295,23 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F9F6F0' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scrollContent: { padding: 20, paddingBottom: 120 }, // مساحة تحت عشان الشريط العائم
-  subBtn: { flexDirection: 'row', backgroundColor: '#FFF', padding: 20, borderRadius: 25, marginBottom: 20, elevation: 2, alignItems: 'center', justifyContent: 'space-between' },
-  subBtnIcon: { width: 50, height: 50, backgroundColor: '#F97316', borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
+  scrollContent: { padding: 20 },
+  pageTitle: { fontSize: 28, fontWeight: '900', color: '#2A4B46', textAlign: 'right', marginBottom: 25 },
+  
+  // تنسيقات الأزرار الرئيسية (المنيو)
+  subBtn: { flexDirection: 'row', backgroundColor: '#FFF', padding: 20, borderRadius: 25, marginBottom: 15, elevation: 2, alignItems: 'center', justifyContent: 'space-between' },
+  subBtnActive: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginBottom: 0, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', elevation: 0 },
+  subBtnIcon: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
   subBtnRight: { flex: 1, alignItems: 'flex-end' },
   subBtnTitle: { fontSize: 18, fontWeight: 'bold', color: '#1F2937' },
   subBtnDesc: { fontSize: 12, color: '#6B7280', marginTop: 4 },
   subBtnLeft: { padding: 5 },
-  pageTitle: { fontSize: 28, fontWeight: '900', color: '#2A4B46', textAlign: 'right', marginBottom: 25 },
-  
-  card: { backgroundColor: '#FFF', padding: 20, borderRadius: 25, marginBottom: 20, elevation: 2, shadowColor: '#000', shadowOffset: {width: 0, height: 5}, shadowOpacity: 0.05, shadowRadius: 10 },
-  cardHeader: { flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 20, gap: 8 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#2A4B46' },
+
+  // تنسيقات الكارت الممتد (الفورم)
+  expandedCard: { backgroundColor: '#FFF', padding: 20, borderBottomLeftRadius: 25, borderBottomRightRadius: 25, marginBottom: 15, elevation: 2, borderTopWidth: 0 },
 
   avatarSection: { alignItems: 'center', marginBottom: 25 },
-  avatarWrapper: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: 'rgba(249, 115, 22, 0.2)', position: 'relative' },
+  avatarWrapper: { width: 110, height: 110, borderRadius: 55, borderWidth: 3, borderColor: 'rgba(42, 75, 70, 0.2)', position: 'relative' },
   avatarImage: { width: '100%', height: '100%', borderRadius: 55 },
   avatarPlaceholder: { width: '100%', height: '100%', borderRadius: 55, backgroundColor: '#2A4B46', justifyContent: 'center', alignItems: 'center' },
   avatarInitial: { fontSize: 40, fontWeight: 'bold', color: '#FFF' },
@@ -306,7 +321,7 @@ const styles = StyleSheet.create({
 
   inputGroup: { marginBottom: 15 },
   inputLabel: { fontSize: 13, color: '#6B7280', fontWeight: 'bold', textAlign: 'right', marginBottom: 8 },
-  input: { backgroundColor: '#F3F4F6', height: 55, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 15, color: '#1F2937', fontFamily: 'System' },
+  input: { backgroundColor: '#F3F4F6', height: 55, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 15, color: '#1F2937' },
   disabledInput: { color: '#9CA3AF', backgroundColor: '#F9FAFB' },
 
   saveBtn: { backgroundColor: '#2A4B46', height: 55, borderRadius: 15, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 10 },

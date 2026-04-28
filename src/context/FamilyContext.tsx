@@ -91,6 +91,24 @@ export const FamilyProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     fetchFamily();
+
+    // 🔥 الاشتراك في تغييرات الـ profiles بدل الـ manual refresh فقط
+    if (!userId) return;
+
+    const channel = supabase.channel(`family-changes-${userId}`)
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+        () => fetchFamily()
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles', filter: `manager_id=eq.${userId}` },
+        () => fetchFamily()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   // دالة التبديل بين الحسابات

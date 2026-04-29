@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, TextInput, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, TextInput, RefreshControl, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
@@ -18,10 +18,13 @@ import type { InbodyRecord, ClientDocument, HealthProfile, LifestyleProfile } fr
 const screenWidth = Dimensions.get('window').width;
 const arabicMonths = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 
-const DISEASE_OPTIONS = ['سكر', 'ضغط', 'قلب', 'كلى', 'كبد', 'قولون', 'أنيميا', 'حساسية', 'ربو', 'تكيس مبايض', 'كوليسترول', 'نقرس', 'هشاشة عظام'];
-const DIET_OPTIONS = ['عادي', 'نباتي (Vegan)', 'نباتي جزئي', 'كيتو'];
-const FAMILY_HISTORY_OPTIONS = ['سكر', 'ضغط', 'سمنة', 'أمراض قلب', 'غدة'];
+const DISEASE_OPTIONS = ['سكري النوع 1', 'سكري النوع 2', 'ضغط مرتفع', 'ضغط منخفض', 'مقاومة أنسولين', 'خمول الغدة', 'نشاط الغدة', 'تكيس مبايض', 'جرثومة المعدة', 'قولون عصبي', 'نقرس', 'أنيميا', 'خشونة مفاصل', 'انزلاق غضروفي', 'أمراض قلب', 'مشاكل كلى', 'حساسية', 'ربو'];
+const DIET_OPTIONS = ['عادي', 'نباتي (Vegan)', 'نباتي جزئي', 'كيتو', 'صيام متقطع'];
+const FAMILY_HISTORY_OPTIONS = ['سكري', 'ضغط', 'سمنة', 'أمراض قلب', 'غدة', 'أورام'];
 const GOAL_OPTIONS = ['خسارة وزن', 'زيادة وزن', 'تثبيت الوزن', 'بناء عضل'];
+const DIGESTIVE_OPTIONS = ['حموضة مزمنة', 'إمساك', 'إسهال', 'انتفاخات وغازات'];
+const WORK_NATURE_OPTIONS = ['مكتبي (جالس)', 'حركي خفيف', 'مجهود بدني شاق', 'شيفتات متغيرة'];
+const APPETITE_OPTIONS = ['مفتوحة جداً', 'عادية', 'ضعيفة'];
 
 export default function MedicalRecordsScreen() {
   const { currentProfile } = useFamily();
@@ -37,7 +40,8 @@ export default function MedicalRecordsScreen() {
   const [isEditingHealth, setIsEditingHealth] = useState(false);
   const [healthForm, setHealthForm] = useState<HealthProfile>({
     user_id: userId || '',
-    diseases: [], has_allergies: false, allergies_details: '', diet_type: 'عادي', family_history: [], medications: ''
+    diseases: [], has_allergies: false, allergies_details: '', diet_type: 'عادي', family_history: [], medications: '',
+    surgeries: '', injuries: '', digestive_issues: [], hormonal_status: ''
   });
 
   const [lifestyleProfile, setLifestyleProfile] = useState<LifestyleProfile | null>(null);
@@ -45,7 +49,8 @@ export default function MedicalRecordsScreen() {
   const [lifestyleForm, setLifestyleForm] = useState<any>({
     goal: 'خسارة وزن', meals_per_day: '3', has_breakfast: true, has_snacks: false, late_night_eating: false,
     favorite_foods: '', disliked_foods: '', water_liters: '2', beverages: [], activity_level: 'متوسط',
-    does_exercise: false, exercise_details: { type: '', days: '0' }, sleep_hours: '7', sleep_quality: 'جيد', smoker: false, stress_level: 'متوسط'
+    does_exercise: false, exercise_details: { type: '', days: '0' }, sleep_hours: '7', sleep_quality: 'جيد', smoker: false, stress_level: 'متوسط',
+    work_nature: 'مكتبي (جالس)', emotional_eating: false, diet_history: '', supplements: '', caffeine_intake: '', appetite_level: 'عادية', weight_plateau: false
   });
 
   const [loading, setLoading] = useState(true);
@@ -86,7 +91,15 @@ export default function MedicalRecordsScreen() {
 
   const fetchProfiles = async () => {
     const { data: health } = await supabase.from('health_profile').select('*').eq('user_id', userId).single();
-    if (health) { setHealthProfile(health); setHealthForm(health); }
+    if (health) { 
+      setHealthProfile(health); 
+      setHealthForm(health); 
+    } else {
+      setHealthProfile(null);
+      setHealthForm({
+        user_id: userId || '', diseases: [], has_allergies: false, allergies_details: '', diet_type: 'عادي', family_history: [], medications: '', surgeries: '', injuries: '', digestive_issues: [], hormonal_status: ''
+      });
+    }
 
     const { data: life } = await supabase.from('lifestyle_profile').select('*').eq('user_id', userId).single();
     if (life) { 
@@ -95,6 +108,14 @@ export default function MedicalRecordsScreen() {
             ...life, water_liters: life.water_liters?.toString() || '2', sleep_hours: life.sleep_hours?.toString() || '7',
             exercise_details: { type: life.exercise_details?.type || '', days: life.exercise_details?.days?.toString() || '0' }
         }); 
+    } else {
+      setLifestyleProfile(null);
+      setLifestyleForm({
+        goal: 'خسارة وزن', meals_per_day: '3', has_breakfast: true, has_snacks: false, late_night_eating: false,
+        favorite_foods: '', disliked_foods: '', water_liters: '2', beverages: [], activity_level: 'متوسط',
+        does_exercise: false, exercise_details: { type: '', days: '0' }, sleep_hours: '7', sleep_quality: 'جيد', smoker: false, stress_level: 'متوسط',
+        work_nature: 'مكتبي (جالس)', emotional_eating: false, diet_history: '', supplements: '', caffeine_intake: '', appetite_level: 'عادية', weight_plateau: false
+      });
     }
   };
 
@@ -108,18 +129,88 @@ export default function MedicalRecordsScreen() {
     setDocs(data || []);
   };
 
-  // (دوال الحفظ والرفع نفس ما هي بالظبط)
-  const saveHealthProfile = async () => { /* ... */ };
-  const saveLifestyleProfile = async () => { /* ... */ };
-  const toggleArrayItem = (arrayName: 'diseases' | 'family_history', item: string) => {
+  const saveHealthProfile = async () => {
+    if (!userId) return;
+    setUploading(true);
+    try {
+      const { error } = await supabase.from('health_profile').upsert({ ...healthForm, user_id: userId });
+      if (error) throw error;
+      await fetchProfiles();
+      setIsEditingHealth(false);
+      Alert.alert('نجاح', 'تم حفظ الملف الطبي بنجاح');
+    } catch (err: any) {
+      console.error('[saveHealthProfile] Error:', JSON.stringify(err));
+      Alert.alert('خطأ', `كود: ${err?.code}\n${err?.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const saveLifestyleProfile = async () => {
+    if (!userId) return;
+    setUploading(true);
+    try {
+      const { error } = await supabase.from('lifestyle_profile').upsert({ ...lifestyleForm, user_id: userId });
+      if (error) throw error;
+      await fetchProfiles();
+      setIsEditingLifestyle(false);
+      Alert.alert('نجاح', 'تم حفظ نمط الحياة بنجاح');
+    } catch (err: any) {
+      console.error('[saveLifestyleProfile] Error:', JSON.stringify(err));
+      Alert.alert('خطأ', `كود: ${err?.code}\n${err?.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const toggleArrayItem = (arrayName: 'diseases' | 'family_history' | 'digestive_issues', item: string) => {
     setHealthForm((prev: any) => {
         const arr = prev[arrayName] || []; return { ...prev, [arrayName]: arr.includes(item) ? arr.filter((i: string) => i !== item) : [...arr, item] };
     });
   };
-  const handleAnalyzeImage = async () => { /* ... */ };
-  const handleInbodySubmit = async () => { /* ... */ };
-  const handleDocUpload = async () => { /* ... */ };
-  const handleViewDocument = async (pathOrUrl: string) => { /* ... */ };
+
+  const handleAnalyzeImage = async () => { Alert.alert('تنبيه', 'خاصية قراءة الورقة بالذكاء الاصطناعي قيد التطوير'); };
+  const handleInbodySubmit = async () => {
+    if (!weight) return Alert.alert('خطأ', 'الرجاء إدخال الوزن');
+    setUploading(true);
+    try {
+      const { error } = await supabase.from('inbody_records').insert({ user_id: userId, weight: parseFloat(weight), muscle_mass: muscle ? parseFloat(muscle) : null, fat_percent: fat ? parseFloat(fat) : null, record_date: new Date().toISOString() });
+      if (error) throw error;
+      await fetchInbody();
+      setShowInbodyForm(false);
+      setWeight(''); setMuscle(''); setFat('');
+    } catch (err) { Alert.alert('خطأ', 'فشل الحفظ'); }
+    finally { setUploading(false); }
+  };
+
+  const handleDocUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+      if (!result.canceled && result.assets.length > 0) {
+        setUploading(true);
+        const file = result.assets[0];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('client_documents').upload(fileName, file as any); // using any for React Native file
+        if (uploadError) throw uploadError;
+        await supabase.from('client_documents').insert({ user_id: userId, file_name: file.name, file_url: fileName, file_type: fileExt });
+        await fetchDocs();
+        Alert.alert('نجاح', 'تم رفع الملف');
+      }
+    } catch (err) {
+      console.log(err);
+      Alert.alert('خطأ', 'فشل رفع الملف');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleViewDocument = async (pathOrUrl: string) => {
+    try {
+      const { data } = await supabase.storage.from('client_documents').createSignedUrl(pathOrUrl, 3600);
+      if (data?.signedUrl) Linking.openURL(data.signedUrl);
+    } catch (err) { Alert.alert('خطأ', 'لا يمكن فتح الملف'); }
+  };
 
   const lastRec = inbodyRecords.length > 0 ? inbodyRecords[inbodyRecords.length - 1] : null;
   const chartData = {
@@ -237,6 +328,22 @@ export default function MedicalRecordsScreen() {
                 </View>
               )}
 
+              {inbodyRecords.length >= 2 && inbodyRecords[0]?.image_url && lastRec?.image_url && (
+                <View style={styles.chartContainer}>
+                  <Text style={styles.chartTitle}>مقارنة التطور البصري (قبل وبعد)</Text>
+                  <View style={{ flexDirection: 'row-reverse', justifyContent: 'space-between', marginTop: 10 }}>
+                    <View style={{ flex: 1, alignItems: 'center', marginHorizontal: 5 }}>
+                      <Text style={{ fontWeight: 'bold', marginBottom: 8, color: '#4B5563' }}>أول قياس</Text>
+                      <Image source={{ uri: supabase.storage.from('inbody_images').getPublicUrl(inbodyRecords[0].image_url).data.publicUrl }} style={{ width: '100%', height: 200, borderRadius: 12 }} resizeMode="cover" />
+                    </View>
+                    <View style={{ flex: 1, alignItems: 'center', marginHorizontal: 5 }}>
+                      <Text style={{ fontWeight: 'bold', marginBottom: 8, color: '#2A4B46' }}>القياس الأخير</Text>
+                      <Image source={{ uri: supabase.storage.from('inbody_images').getPublicUrl(lastRec.image_url).data.publicUrl }} style={{ width: '100%', height: 200, borderRadius: 12 }} resizeMode="cover" />
+                    </View>
+                  </View>
+                </View>
+              )}
+
               {!showInbodyForm && (
                 <View style={styles.actionRow}>
                   <TouchableOpacity style={[styles.actionBtn, { borderColor: '#F97316', backgroundColor: '#FFF7ED' }]} onPress={handleAnalyzeImage} disabled={analyzing}>
@@ -342,6 +449,24 @@ export default function MedicalRecordsScreen() {
                         <Text style={styles.dataValueBox}>{healthProfile.medications || 'لا يوجد'}</Text>
                       </View>
                       <View style={styles.dataGroup}>
+                        <Text style={styles.dataLabel}>العمليات الجراحية</Text>
+                        <Text style={styles.dataValueBox}>{healthProfile.surgeries || 'لا يوجد'}</Text>
+                      </View>
+                      <View style={styles.dataGroup}>
+                        <Text style={styles.dataLabel}>الإصابات المانعة للحركة</Text>
+                        <Text style={styles.dataValueBox}>{healthProfile.injuries || 'لا يوجد'}</Text>
+                      </View>
+                      <View style={styles.dataGroup}>
+                        <Text style={styles.dataLabel}>مشاكل الهضم</Text>
+                        <View style={styles.chipsContainer}>
+                          {healthProfile.digestive_issues?.length ? healthProfile.digestive_issues.map((d:string) => <View key={d} style={styles.chipRed}><Text style={styles.chipRedText}>{d}</Text></View>) : <View style={styles.chipGreen}><Text style={styles.chipGreenText}>لا يوجد</Text></View>}
+                        </View>
+                      </View>
+                      <View style={styles.dataGroup}>
+                        <Text style={styles.dataLabel}>الحالة الهرمونية</Text>
+                        <Text style={styles.dataValueBox}>{healthProfile.hormonal_status || 'لا يوجد / لا ينطبق'}</Text>
+                      </View>
+                      <View style={styles.dataGroup}>
                         <Text style={styles.dataLabel}>نوع النظام المفضل</Text>
                         <Text style={styles.dataValueBox}>{healthProfile.diet_type}</Text>
                       </View>
@@ -391,8 +516,26 @@ export default function MedicalRecordsScreen() {
                     ))}
                   </View>
 
-                  <Text style={[styles.inputLabel, {marginTop: 15}]}>الأدوية والمكملات (بالجرعات)</Text>
-                  <TextInput style={styles.inputArea} multiline placeholder="مثال: أوميجا 3 يومياً..." value={healthForm.medications} onChangeText={t => setHealthForm({...healthForm, medications: t})} />
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>الأدوية (بالجرعات)</Text>
+                  <TextInput style={styles.inputArea} multiline placeholder="مثال: جلوكوفاج 500 بعد الغداء..." value={healthForm.medications} onChangeText={t => setHealthForm({...healthForm, medications: t})} />
+
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>هل قمت بإجراء أي عمليات جراحية؟</Text>
+                  <TextInput style={styles.inputArea} multiline placeholder="اذكر التفاصيل إن وجد..." value={healthForm.surgeries} onChangeText={t => setHealthForm({...healthForm, surgeries: t})} />
+
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>هل لديك أي إصابات تمنعك من تمرين معين؟</Text>
+                  <TextInput style={styles.inputArea} multiline placeholder="مثل: غضروف الظهر، إصابة ركبة..." value={healthForm.injuries} onChangeText={t => setHealthForm({...healthForm, injuries: t})} />
+
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>مشاكل الجهاز الهضمي</Text>
+                  <View style={styles.chipsContainer}>
+                    {DIGESTIVE_OPTIONS.map(d => (
+                      <TouchableOpacity key={d} style={[styles.chipSelect, healthForm.digestive_issues?.includes(d) && styles.chipSelectActive]} onPress={() => toggleArrayItem('digestive_issues', d)}>
+                        <Text style={[styles.chipSelectText, healthForm.digestive_issues?.includes(d) && styles.chipSelectTextActive]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>الحالة الهرمونية (للسيدات: انتظام الدورة، تكيسات..)</Text>
+                  <TextInput style={styles.inputArea} multiline placeholder="اذكر التفاصيل إن وجد..." value={healthForm.hormonal_status} onChangeText={t => setHealthForm({...healthForm, hormonal_status: t})} />
 
                   <TouchableOpacity style={[styles.saveBtn, {marginTop: 20}]} onPress={saveHealthProfile} disabled={uploading}>
                     {uploading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveBtnText}>حفظ البيانات الطبية</Text>}
@@ -434,16 +577,20 @@ export default function MedicalRecordsScreen() {
                         <Text style={styles.dataValueBox}>يفطر: {lifestyleProfile.has_breakfast?'نعم':'لا'} | سناكس: {lifestyleProfile.has_snacks?'نعم':'لا'} | أكل متأخر: {lifestyleProfile.late_night_eating?'نعم':'لا'}</Text>
                       </View>
                       <View style={styles.dataGroup}>
-                        <Text style={styles.dataLabel}>النشاط البدني</Text>
-                        <Text style={styles.dataValueBox}>{lifestyleProfile.activity_level} {lifestyleProfile.does_exercise ? `(${lifestyleProfile.exercise_details?.type})` : ''}</Text>
+                        <Text style={styles.dataLabel}>النشاط البدني وطبيعة العمل</Text>
+                        <Text style={styles.dataValueBox}>{lifestyleProfile.work_nature} - {lifestyleProfile.activity_level} {lifestyleProfile.does_exercise ? `(${lifestyleProfile.exercise_details?.type})` : ''}</Text>
                       </View>
                       <View style={styles.dataGroup}>
-                        <Text style={styles.dataLabel}>الأطعمة المفضلة</Text>
-                        <Text style={styles.dataValueBox}>{lifestyleProfile.favorite_foods || '-'}</Text>
+                        <Text style={styles.dataLabel}>معلومات إضافية (الشهية والمكملات)</Text>
+                        <Text style={styles.dataValueBox}>الشهية: {lifestyleProfile.appetite_level} | المكملات: {lifestyleProfile.supplements || 'لا يوجد'}</Text>
                       </View>
                       <View style={styles.dataGroup}>
-                        <Text style={styles.dataLabel}>أطعمة غير مفضلة (أو ممنوعة)</Text>
-                        <Text style={styles.dataValueBox}>{lifestyleProfile.disliked_foods || '-'}</Text>
+                        <Text style={styles.dataLabel}>تاريخ الدايت وتحدياته</Text>
+                        <Text style={styles.dataValueBox}>ثبات وزن: {lifestyleProfile.weight_plateau?'نعم':'لا'} | أكل عاطفي: {lifestyleProfile.emotional_eating?'نعم':'لا'}{'\n'}الأنظمة السابقة: {lifestyleProfile.diet_history || 'لا يوجد'}</Text>
+                      </View>
+                      <View style={styles.dataGroup}>
+                        <Text style={styles.dataLabel}>الأطعمة المفضلة والممنوعة</Text>
+                        <Text style={styles.dataValueBox}>المفضل: {lifestyleProfile.favorite_foods || '-'}{'\n'}الممنوع: {lifestyleProfile.disliked_foods || '-'}</Text>
                       </View>
                     </View>
                   )}
@@ -488,6 +635,45 @@ export default function MedicalRecordsScreen() {
                       <View style={[styles.toggleDot, lifestyleForm.late_night_eating && styles.toggleDotActive]} />
                     </TouchableOpacity>
                   </View>
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleText}>الارتباط العاطفي بالأكل (شراهة عند التوتر؟)</Text>
+                    <TouchableOpacity style={[styles.toggleBtn, lifestyleForm.emotional_eating && styles.toggleBtnActive]} onPress={()=>setLifestyleForm({...lifestyleForm, emotional_eating: !lifestyleForm.emotional_eating})}>
+                      <View style={[styles.toggleDot, lifestyleForm.emotional_eating && styles.toggleDotActive]} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.toggleRow}>
+                    <Text style={styles.toggleText}>أعاني من ثبات الوزن الفترات الأخيرة</Text>
+                    <TouchableOpacity style={[styles.toggleBtn, lifestyleForm.weight_plateau && styles.toggleBtnActive]} onPress={()=>setLifestyleForm({...lifestyleForm, weight_plateau: !lifestyleForm.weight_plateau})}>
+                      <View style={[styles.toggleDot, lifestyleForm.weight_plateau && styles.toggleDotActive]} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>طبيعة العمل اليومي</Text>
+                  <View style={styles.chipsContainer}>
+                    {WORK_NATURE_OPTIONS.map(d => (
+                      <TouchableOpacity key={d} style={[styles.chipSelect, lifestyleForm.work_nature === d && styles.chipSelectActive]} onPress={() => setLifestyleForm({...lifestyleForm, work_nature: d})}>
+                        <Text style={[styles.chipSelectText, lifestyleForm.work_nature === d && styles.chipSelectTextActive]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>مستوى الشهية العام</Text>
+                  <View style={styles.chipsContainer}>
+                    {APPETITE_OPTIONS.map(d => (
+                      <TouchableOpacity key={d} style={[styles.chipSelect, lifestyleForm.appetite_level === d && styles.chipSelectActive]} onPress={() => setLifestyleForm({...lifestyleForm, appetite_level: d})}>
+                        <Text style={[styles.chipSelectText, lifestyleForm.appetite_level === d && styles.chipSelectTextActive]}>{d}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>تاريخ الدايت (أنظمة قاسية سابقة؟)</Text>
+                  <TextInput style={styles.inputLong} placeholder="مثال: جربت كيتو ونزلت ورجعت تاني..." value={lifestyleForm.diet_history} onChangeText={t=>setLifestyleForm({...lifestyleForm, diet_history: t})} />
+                  
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>المكملات الغذائية المستخدمة حالياً</Text>
+                  <TextInput style={styles.inputLong} placeholder="مثال: واي بروتين، فيتامين د..." value={lifestyleForm.supplements} onChangeText={t=>setLifestyleForm({...lifestyleForm, supplements: t})} />
+                  
+                  <Text style={[styles.inputLabel, {marginTop: 15}]}>معدل استهلاك المنبهات (قهوة، شاي، طاقة)</Text>
+                  <TextInput style={styles.inputLong} placeholder="مثال: 3 أكواب قهوة يومياً..." value={lifestyleForm.caffeine_intake} onChangeText={t=>setLifestyleForm({...lifestyleForm, caffeine_intake: t})} />
 
                   <Text style={[styles.inputLabel, {marginTop: 15}]}>أطعمة مفضلة جداً</Text>
                   <TextInput style={styles.inputLong} placeholder="شوكولاتة، مكرونة..." value={lifestyleForm.favorite_foods} onChangeText={t=>setLifestyleForm({...lifestyleForm, favorite_foods: t})} />

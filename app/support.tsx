@@ -7,11 +7,10 @@ import { Audio } from 'expo-av';
 import * as Linking from 'expo-linking';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '../../src/lib/supabase';
-import { useFamily } from '../../src/context/FamilyContext';
-import { useSubscriptionGuard } from '../../hooks/useSubscriptionGuard';
-import ExpiredState from '../../components/ExpiredState';
-import type { Message } from '../../src/types';
+import { supabase } from '../src/lib/supabase';
+import { useFamily } from '../src/context/FamilyContext';
+import { useRouter } from 'expo-router';
+import type { Message } from '../src/types';
 
 // 🌟 مُشغل المرفقات الداخلي (صور - فويس - ملفات)
 const InlineAttachment = ({ path, type, isMe }: { path: string, type: string, isMe: boolean }) => {
@@ -119,12 +118,12 @@ const InlineAttachment = ({ path, type, isMe }: { path: string, type: string, is
 };
 
 // 🌟 الشاشة الرئيسية
-export default function ChatScreen() {
+export default function SupportScreen() {
   const { currentProfile } = useFamily();
   const currentUserId = currentProfile?.id;  
-  const { isSubscribed, isGuardLoading } = useSubscriptionGuard();
+  const router = useRouter();
 
-  const activeChannel = 'doctor';
+  const activeChannel = 'admin';
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [receiverId, setReceiverId] = useState<string | null>(null);
@@ -152,7 +151,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (currentUserId && !receiverId) {
-      openChat('doctor');
+      openChat('admin');
     }
   }, [currentUserId, receiverId]);
 
@@ -171,7 +170,7 @@ export default function ChatScreen() {
     return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
   }, [activeChannel, receiverId, currentUserId]);
 
-  const openChat = async (type: 'doctor' | 'admin') => {
+  const openChat = async (type: 'admin') => {
     setLoading(true);
     try {
       const { data: receiverData } = await supabase.from('profiles').select('id, updated_at').eq('role', type).limit(1).single();
@@ -327,24 +326,22 @@ export default function ChatScreen() {
     } finally { setUploading(false); }
   };
 
-  if (isGuardLoading || !currentProfile) return <ActivityIndicator size="large" color="#2A4B46" style={{flex:1, marginTop: 50}} />;
-  if (!isSubscribed) {
-    return <ExpiredState />;
-  }
+  if (!currentProfile) return <ActivityIndicator size="large" color="#2A4B46" style={{flex:1, marginTop: 50}} />;
 
   return (
     <SafeAreaView style={styles.chatContainer}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}>
         <View style={styles.chatHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-forward" size={24} color="#1F2937" /></TouchableOpacity>
           <View style={styles.headerTitleBox}>
-            <Text style={styles.chatHeaderTitle}>الكوتش الطبي</Text>
+            <Text style={styles.chatHeaderTitle}>خدمة العملاء</Text>
             {lastSeen && (
               <Text style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2, fontWeight: 'bold' }}>
                 آخر ظهور: {new Date(lastSeen).toLocaleDateString('ar-EG')} {new Date(lastSeen).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
               </Text>
             )}
           </View>
-          <View style={[styles.headerAvatar, { backgroundColor: '#E8F3F1' }]}><Ionicons name="fitness" size={20} color="#2A4B46" /></View>
+          <View style={[styles.headerAvatar, { backgroundColor: '#EBF4FF' }]}><Ionicons name="headset" size={20} color="#3B82F6" /></View>
         </View>
 
         <ScrollView ref={scrollViewRef} style={styles.messagesArea} contentContainerStyle={{ padding: 15 }}>

@@ -5,6 +5,7 @@ import * as Notifications from 'expo-notifications';
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { supabase } from '../src/lib/supabase';
 import { useFamily } from '../src/context/FamilyContext';
+import { useRouter } from 'expo-router';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -22,6 +23,7 @@ export function usePushNotifications() {
   
   const notificationListener = useRef<Notifications.Subscription | null>(null);
   const responseListener = useRef<Notifications.Subscription | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     // 1. تسجيل الجهاز واستخراج التوكن (بأمان)
@@ -46,7 +48,10 @@ export function usePushNotifications() {
 
     // 3. مستمع لضغط المستخدم على الإشعار
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('User tapped notification:', response);
+      const data = response.notification.request.content.data;
+      if (data?.screen) {
+        router.push(data.screen as any);
+      }
     });
 
     return () => {

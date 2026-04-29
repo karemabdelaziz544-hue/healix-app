@@ -5,16 +5,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import ExpiredState from '../../components/ExpiredState';
+import Skeleton from '../../components/Skeleton';
+import { useSubscriptionGuard } from '../../hooks/useSubscriptionGuard';
+import type { PlanTask } from '../../src/types';
 
 export default function PlanDetailsScreen() {
   const router = useRouter();
   const { planId } = useLocalSearchParams(); 
 
   const [planTitle, setPlanTitle] = useState('');
-  const [tasksByDay, setTasksByDay] = useState<Record<string, any[]>>({});
+  const [tasksByDay, setTasksByDay] = useState<Record<string, PlanTask[]>>({});
   const [dayNames, setDayNames] = useState<string[]>([]);
   const [activeDay, setActiveDay] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const { isSubscribed, isGuardLoading } = useSubscriptionGuard();
 
   useEffect(() => {
     if (planId) {
@@ -35,7 +39,7 @@ export default function PlanDetailsScreen() {
         .order('order_index', { ascending: true });
 
       if (tasks) {
-        const grouped: Record<string, any[]> = {};
+        const grouped: Record<string, PlanTask[]> = {};
         const days: string[] = [];
 
         tasks.forEach((task) => {
@@ -58,13 +62,29 @@ export default function PlanDetailsScreen() {
     }
   };
 
-  if (loading) {
+  if (loading || isGuardLoading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2A4B46" />
-        <Text style={styles.loadingText}>جاري تحميل تفاصيل النظام...</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Skeleton width={30} height={30} borderRadius={15} />
+          <View style={[styles.headerTitleBox, { alignItems: 'flex-start' }]}>
+            <Skeleton width={120} height={20} borderRadius={8} style={{ marginBottom: 5 }} />
+            <Skeleton width={80} height={15} borderRadius={5} />
+          </View>
+          <View style={styles.spacer} />
+        </View>
+        <View style={{ padding: 20 }}>
+          <Skeleton width="100%" height={40} borderRadius={20} style={{ marginBottom: 20 }} />
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} width="100%" height={60} borderRadius={15} style={{ marginBottom: 10 }} />
+          ))}
+        </View>
       </SafeAreaView>
     );
+  }
+
+  if (!isSubscribed) {
+    return <ExpiredState />;
   }
 
   return (

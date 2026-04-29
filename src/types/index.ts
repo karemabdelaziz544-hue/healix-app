@@ -58,6 +58,11 @@ export interface HealthProfile {
   diet_type: string;
   family_history: string[];
   medications: string;
+  // الحقول الجديدة:
+  surgeries: string;
+  injuries: string;
+  digestive_issues: string[];
+  hormonal_status: string;
 }
 
 export interface LifestyleProfile {
@@ -82,6 +87,14 @@ export interface LifestyleProfile {
   sleep_quality: string;
   smoker: boolean;
   stress_level: string;
+  // الحقول الجديدة:
+  work_nature: string;
+  emotional_eating: boolean;
+  diet_history: string;
+  supplements: string;
+  caffeine_intake: string;
+  appetite_level: string;
+  weight_plateau: boolean;
 }
 
 // ======== Chat & Messages ========
@@ -122,3 +135,17 @@ export interface DailyLog {
   tasks_total: number;
   created_at?: string;
 }
+
+// ======== Subscriptions ========
+
+export interface PaymentRequest {
+  id: string;
+  user_id: string;
+  amount: number;
+  plan_type: string;
+  status: 'pending' | 'approved' | 'rejected';
+  receipt_url: string;
+  renewal_metadata?: any;
+  created_at: string;
+}
+

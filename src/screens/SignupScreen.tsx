@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Animated, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Animated, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { handleError } from '../lib/errorHandler';
 
 export default function SignupScreen() {
   const [name, setName] = useState('');
@@ -12,6 +13,8 @@ export default function SignupScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // أنيميشن لدخول الشاشة بنعومة (Fade In & Scale)
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -30,6 +33,19 @@ export default function SignupScreen() {
       Alert.alert('تنبيه', 'يرجى إكمال جميع الحقول');
       return;
     }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('تنبيه', 'يرجى إدخال بريد إلكتروني صحيح');
+      return;
+    }
+
+    const phoneRegex = /^01[0125][0-9]{8}$/; // أرقام مصرية
+    if (!phoneRegex.test(phone)) {
+      Alert.alert('تنبيه', 'يرجى إدخال رقم هاتف صحيح (مثال: 01012345678)');
+      return;
+    }
+
     if (password !== confirmPassword) {
       Alert.alert('تنبيه', 'كلمات المرور غير متطابقة');
       return;
@@ -71,7 +87,7 @@ export default function SignupScreen() {
       router.replace('/(tabs)');
       
     } catch (error: any) {
-      Alert.alert('خطأ', error.message || 'فشل إنشاء الحساب');
+      handleError(error, 'Signup');
     } finally {
       setLoading(false);
     }
@@ -91,6 +107,7 @@ export default function SignupScreen() {
         <Animated.View style={[styles.formCard, { opacity: fadeAnim, transform: [{ scale: scaleAnim }] }]}>
           
           <View style={styles.header}>
+            <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>انضم لعائلة هيليكس</Text>
             <Text style={styles.subtitle}>ابدأ رحلة صحية جديدة ومخصصة لك</Text>
           </View>
@@ -134,11 +151,21 @@ export default function SignupScreen() {
           <View style={styles.row}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>كلمة المرور</Text>
-              <TextInput style={styles.input} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry />
+              <View style={styles.passwordContainer}>
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                  <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+                <TextInput style={[styles.input, { flex: 1, height: '100%' }]} placeholder="••••••••" value={password} onChangeText={setPassword} secureTextEntry={!showPassword} />
+              </View>
             </View>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.label}>تأكيد المرور</Text>
-              <TextInput style={styles.input} placeholder="••••••••" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+              <View style={styles.passwordContainer}>
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
+                  <Ionicons name={showConfirmPassword ? "eye-off" : "eye"} size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+                <TextInput style={[styles.input, { flex: 1, height: '100%' }]} placeholder="••••••••" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showConfirmPassword} />
+              </View>
             </View>
           </View>
 
@@ -176,6 +203,7 @@ const styles = StyleSheet.create({
   formCard: { backgroundColor: '#FFF', padding: 30, borderRadius: 30, elevation: 10, shadowColor: '#2A4B46', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20 },
   
   header: { alignItems: 'center', marginBottom: 30 },
+  logo: { width: 70, height: 70, marginBottom: 15, borderRadius: 20 },
   title: { fontSize: 28, fontWeight: '900', color: '#2A4B46', marginBottom: 5 },
   subtitle: { fontSize: 14, color: '#6B7280', fontWeight: 'bold' },
 
@@ -183,6 +211,9 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row-reverse', gap: 15 },
   label: { fontSize: 13, fontWeight: 'bold', color: '#4B5563', textAlign: 'right', marginBottom: 8 },
   input: { backgroundColor: '#F3F4F6', height: 50, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 14, color: '#1F2937' },
+  
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', height: 50, borderRadius: 15 },
+  eyeIcon: { padding: 12 },
 
   genderToggle: { flexDirection: 'row-reverse', backgroundColor: '#F3F4F6', height: 50, borderRadius: 15, padding: 4 },
   genderBtn: { flex: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 12 },

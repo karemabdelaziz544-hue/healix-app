@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { FamilyProvider } from '../src/context/FamilyContext';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { ThemeProvider } from '../src/context/ThemeContext';
 import OfflineBanner from '../components/OfflineBanner';
 // 🌟 1. مدير الإشعارات
 function PushNotificationManager() {
@@ -14,7 +13,7 @@ function PushNotificationManager() {
 
 // 🌟 2. حارس التوجيه الذكي المُعدل (Auth Guard)
 function AuthGuard() {
-  const { session } = useAuth();
+  const { session, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const navigationState = useRootNavigationState();
@@ -30,7 +29,7 @@ function AuthGuard() {
   }, [navigationState?.key]);
 
   useEffect(() => {
-    if (!isReady) return; // لا تفعل شيء حتى يكون الـ Router جاهز تماماً
+    if (!isReady || isLoading) return; // لا تفعل شيء حتى ينتهي التحميل ويكون الـ Router جاهز تماماً
 
     const inAuthGroup = segments[0] === 'login' || segments[0] === 'signup';
 
@@ -39,7 +38,7 @@ function AuthGuard() {
     } else if (session && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [session, segments, isReady]);
+  }, [session, segments, isReady, isLoading]);
 
   return null;
 }
@@ -49,13 +48,11 @@ export default function RootLayout() {
     <ErrorBoundary>
       <AuthProvider>
         <FamilyProvider>
-          <ThemeProvider>
           <AuthGuard />
           <PushNotificationManager />
           
           <Stack screenOptions={{ headerShown: false }} />
           <OfflineBanner />
-          </ThemeProvider>
         </FamilyProvider>
       </AuthProvider>
     </ErrorBoundary>

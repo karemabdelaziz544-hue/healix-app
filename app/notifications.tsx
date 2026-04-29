@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -48,6 +48,39 @@ export default function NotificationsScreen() {
     }
   };
 
+  const groupedNotifications = useMemo(() => {
+    const groups: Record<string, AppNotification[]> = {
+      'اليوم': [],
+      'أمس': [],
+      'سابقاً': []
+    };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    notifications.forEach(n => {
+      const d = new Date(n.created_at);
+      d.setHours(0, 0, 0, 0);
+
+      if (d.getTime() === today.getTime()) {
+        groups['اليوم'].push(n);
+      } else if (d.getTime() === yesterday.getTime()) {
+        groups['أمس'].push(n);
+      } else {
+        groups['سابقاً'].push(n);
+      }
+    });
+
+    return [
+      { title: 'اليوم', data: groups['اليوم'] },
+      { title: 'أمس', data: groups['أمس'] },
+      { title: 'سابقاً', data: groups['سابقاً'] }
+    ].filter(g => g.data.length > 0);
+  }, [notifications]);
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -67,10 +100,13 @@ export default function NotificationsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <FlatList
-        data={notifications}
+      <SectionList
+        sections={groupedNotifications}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={styles.listContent}
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={styles.sectionHeader}>{title}</Text>
+        )}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Ionicons name="notifications-off-outline" size={60} color="#D1D5DB" />
@@ -93,7 +129,7 @@ export default function NotificationsScreen() {
             <View style={styles.textContent}>
               <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
               <Text style={styles.message} numberOfLines={2}>{item.message}</Text>
-              <Text style={styles.time}>{new Date(item.created_at).toLocaleDateString('ar-EG')}</Text>
+              <Text style={styles.time}>{new Date(item.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}</Text>
             </View>
             {item.is_read ? null : <View style={styles.unreadDot} />}
           </TouchableOpacity>
@@ -120,4 +156,5 @@ const styles = StyleSheet.create({
   unreadDot: { width: 10, height: 10, backgroundColor: '#10B981', borderRadius: 5, marginRight: 10 },
   emptyBox: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
   emptyText: { fontSize: 16, color: '#9CA3AF', fontWeight: 'bold', marginTop: 15 },
+  sectionHeader: { fontSize: 16, fontWeight: '900', color: '#4B5563', textAlign: 'right', marginBottom: 10, marginTop: 5 },
 });

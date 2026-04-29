@@ -11,6 +11,14 @@ import ExpiredState from '../../components/ExpiredState';
 import Skeleton from '../../components/Skeleton';
 import type { Plan, PlanTask } from '../../src/types';
 
+const MOTIVATIONAL_QUOTES = [
+  "🌟 يومك فاضي — جسمك بيشكرك على الراحة!",
+  "💪 استعد ليوم جديد مليان طاقة",
+  "🧘 خذ نفس عميق — الاستراحة جزء من النجاح",
+  "✨ التطور بيحصل حتى وقت الراحة",
+  "🔋 اشحن طاقتك لبكرة"
+];
+
 export default function DashboardScreen() {
   const { currentProfile } = useFamily();
   const userId = currentProfile?.id;
@@ -25,6 +33,11 @@ export default function DashboardScreen() {
   const [celebrated, setCelebrated] = useState(false);
 
   const userName = currentProfile?.full_name?.split(' ')[0] || 'يا بطل';
+
+  const randomQuote = React.useMemo(() => {
+    const index = Math.floor(new Date().getTime() / (1000 * 60 * 60 * 24)) % MOTIVATIONAL_QUOTES.length;
+    return MOTIVATIONAL_QUOTES[index];
+  }, []);
 
   const fetchDashboardData = useCallback(async () => {
     if (!userId) return;
@@ -265,7 +278,7 @@ export default function DashboardScreen() {
           <View style={styles.emptyState}>
             <Ionicons name="calendar-clear-outline" size={60} color="#D1D5DB" />
             <Text style={styles.emptyTitle}>لا يوجد مهام اليوم</Text>
-            <Text style={styles.emptySub}>استرح قليلاً، غداً نواصل العمل.</Text>
+            <Text style={styles.emptySub}>{randomQuote}</Text>
           </View>
         )}
       </ScrollView>

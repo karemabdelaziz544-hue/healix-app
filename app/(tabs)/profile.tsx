@@ -6,8 +6,9 @@ import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
-import { useRouter, Redirect } from 'expo-router'; // 👈 إضافة Redirect هنا
+import { useRouter, Redirect } from 'expo-router';
 import { useFamily } from '../../src/context/FamilyContext';
+import SupportFAB from '../../components/SupportFAB';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -283,11 +284,12 @@ export default function ProfileScreen() {
 
         {/* زر تسجيل الخروج */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={20} color="#EF4444" />
           <Text style={styles.logoutBtnText}>تسجيل الخروج</Text>
-          <Ionicons name="log-out-outline" size={22} color="#EF4444" />
         </TouchableOpacity>
 
       </ScrollView>
+      <SupportFAB />
     </SafeAreaView>
   );
 }

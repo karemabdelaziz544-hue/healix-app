@@ -2,15 +2,17 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
 
-const AuthContext = createContext<{ session: Session | null }>({ session: null });
+const AuthContext = createContext<{ session: Session | null; isLoading: boolean }>({ session: null, isLoading: true });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // جلب الجلسة أول ما التطبيق يفتح
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setIsLoading(false);
     });
 
     // مراقبة أي تغيير لحظي (دخول أو خروج)
@@ -22,7 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ session }}>
+    <AuthContext.Provider value={{ session, isLoading } as any}>
       {children}
     </AuthContext.Provider>
   );

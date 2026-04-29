@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../src/lib/supabase';
 import { useFamily } from '../src/context/FamilyContext';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import Skeleton from '../components/Skeleton';
+import type { PaymentRequest } from '../src/types';
 
 const PRICING = { base: 500, extra: 150 };
 
@@ -15,11 +17,13 @@ export default function SubscriptionsScreen() {
   const { currentProfile, familyMembers } = useFamily();
   const userId = currentProfile?.id;
 
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'current' | 'history'>('current');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   
-  const [history, setHistory] = useState<any[]>([]);
-  const [pendingRequest, setPendingRequest] = useState<any>(null);
+  const [history, setHistory] = useState<PaymentRequest[]>([]);
+  const [pendingRequest, setPendingRequest] = useState<PaymentRequest | null>(null);
 
   const subMembers = familyMembers.filter(m => m.manager_id === userId);
   const subAccountsCount = subMembers.length;
@@ -40,7 +44,6 @@ export default function SubscriptionsScreen() {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
       const { data: pending } = await supabase.from('payment_requests')
         .select('*').eq('user_id', userId).eq('status', 'pending').maybeSingle();
       setPendingRequest(pending);
@@ -53,6 +56,12 @@ export default function SubscriptionsScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
   };
 
   const isActive = currentProfile?.subscription_status === 'active' && 
@@ -146,7 +155,21 @@ export default function SubscriptionsScreen() {
   };
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color="#2A4B46" /></View>;
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Skeleton width={30} height={30} borderRadius={15} />
+          <View style={[styles.headerTitleBox, { alignItems: 'flex-start' }]}>
+            <Skeleton width={120} height={20} borderRadius={8} style={{ marginBottom: 5 }} />
+            <Skeleton width={150} height={15} borderRadius={5} />
+          </View>
+        </View>
+        <View style={{ padding: 20 }}>
+          <Skeleton width="100%" height={150} borderRadius={25} style={{ marginBottom: 20 }} />
+          <Skeleton width="100%" height={100} borderRadius={20} />
+        </View>
+      </SafeAreaView>
+    );
   }
 
   // ==========================================
@@ -201,7 +224,11 @@ export default function SubscriptionsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 20) }]} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2A4B46" />}
+      >
         
         {/* ======================= شاشة باقتي (Current) ======================= */}
         {activeTab === 'current' && (

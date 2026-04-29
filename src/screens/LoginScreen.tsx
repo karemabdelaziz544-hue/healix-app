@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Animated, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Animated, KeyboardAvoidingView, Platform, ActivityIndicator, Image } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { handleError } from '../lib/errorHandler';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(20)).current;
@@ -31,12 +34,29 @@ export default function LoginScreen() {
     });
 
     if (error) {
-      Alert.alert('خطأ', 'بيانات الدخول غير صحيحة');
+      handleError(error, 'Login');
     } else {
       setEmail('');
       setPassword('');
     }
     setLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('تنبيه', 'يرجى كتابة البريد الإلكتروني أولاً ثم الضغط على نسيت كلمة المرور');
+      return;
+    }
+    
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    setLoading(false);
+    
+    if (error) {
+      handleError(error, 'ResetPassword');
+    } else {
+      Alert.alert('تم', 'تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني');
+    }
   };
 
   return (
@@ -49,6 +69,7 @@ export default function LoginScreen() {
       <Animated.View style={[styles.formCard, { opacity: fadeAnim, transform: [{ translateY }] }]}>
         
         <View style={styles.header}>
+          <Image source={require('../../assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>مرحباً بعودتك</Text>
           <Text style={styles.subtitle}>سجل دخولك لمتابعة خطتك الصحية</Text>
         </View>
@@ -66,14 +87,24 @@ export default function LoginScreen() {
         </View>
         
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>كلمة المرور</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="••••••••" 
-            value={password} 
-            onChangeText={setPassword} 
-            secureTextEntry 
-          />
+          <View style={styles.passwordHeader}>
+            <TouchableOpacity onPress={handleForgotPassword}>
+              <Text style={styles.forgotPasswordText}>نسيت كلمة المرور؟</Text>
+            </TouchableOpacity>
+            <Text style={styles.label}>كلمة المرور</Text>
+          </View>
+          <View style={styles.passwordContainer}>
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+            <TextInput 
+              style={[styles.input, { flex: 1, height: '100%' }]} 
+              placeholder="••••••••" 
+              value={password} 
+              onChangeText={setPassword} 
+              secureTextEntry={!showPassword} 
+            />
+          </View>
         </View>
         
         <TouchableOpacity style={styles.submitBtn} onPress={handleLogin} disabled={loading}>
@@ -102,12 +133,18 @@ const styles = StyleSheet.create({
   formCard: { backgroundColor: '#FFF', padding: 30, borderRadius: 30, elevation: 10, shadowColor: '#2A4B46', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20 },
   
   header: { alignItems: 'center', marginBottom: 35 },
+  logo: { width: 80, height: 80, marginBottom: 15, borderRadius: 20 },
   title: { fontSize: 32, fontWeight: '900', color: '#2A4B46', marginBottom: 5 },
   subtitle: { fontSize: 14, color: '#6B7280', fontWeight: 'bold' },
 
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 14, fontWeight: 'bold', color: '#4B5563', textAlign: 'right', marginBottom: 8 },
   input: { backgroundColor: '#F3F4F6', height: 55, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 15, color: '#1F2937' },
+  
+  passwordHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  forgotPasswordText: { fontSize: 12, color: '#F97316', fontWeight: 'bold' },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', height: 55, borderRadius: 15 },
+  eyeIcon: { padding: 15 },
 
   submitBtn: { backgroundColor: '#2A4B46', height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   submitBtnText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },

@@ -13,7 +13,7 @@ export default function Skeleton({ width = '100%', height = 20, borderRadius = 8
 
   useEffect(() => {
     // 🌟 تأثير النبض (Pulse Animation)
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
           toValue: 1,
@@ -26,7 +26,9 @@ export default function Skeleton({ width = '100%', height = 20, borderRadius = 8
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    animation.start();
+    return () => animation.stop();
   }, [opacity]);
 
   return (

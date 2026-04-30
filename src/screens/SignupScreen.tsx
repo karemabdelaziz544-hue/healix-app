@@ -210,9 +210,9 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 15 },
   row: { flexDirection: 'row-reverse', gap: 15 },
   label: { fontSize: 13, fontWeight: 'bold', color: '#4B5563', textAlign: 'right', marginBottom: 8 },
-  input: { backgroundColor: '#F3F4F6', height: 50, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 14, color: '#1F2937' },
+  input: { backgroundColor: '#F3F4F6', height: 55, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 14, color: '#1F2937' },
   
-  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', height: 50, borderRadius: 15 },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', height: 55, borderRadius: 15 },
   eyeIcon: { padding: 12 },
 
   genderToggle: { flexDirection: 'row-reverse', backgroundColor: '#F3F4F6', height: 50, borderRadius: 15, padding: 4 },

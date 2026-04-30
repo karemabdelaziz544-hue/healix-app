@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { useFamily } from '../../src/context/FamilyContext';
 import { useSubscriptionGuard } from '../../hooks/useSubscriptionGuard';
@@ -31,6 +32,9 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [streak, setStreak] = useState(0);
   const [celebrated, setCelebrated] = useState(false);
+  // ✅ P3.2: Animated value للـ progress bar
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const router = useRouter();
 
   const userName = currentProfile?.full_name?.split(' ')[0] || 'يا بطل';
 
@@ -156,6 +160,15 @@ export default function DashboardScreen() {
   const completedCount = tasks.filter(t => t.is_completed).length;
   const progress = tasks.length > 0 ? Math.round((completedCount / tasks.length) * 100) : 0;
 
+  // ✅ P3.2: تحريك الـ progress bar بأنيميشن عند تغيير القيمة
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progress,
+      duration: 800,
+      useNativeDriver: false,
+    }).start();
+  }, [progress]);
+
   // 🎉 احتفال عند إتمام 100% من المهام
   useEffect(() => {
     if (progress === 100 && tasks.length > 0 && !celebrated) {
@@ -238,13 +251,24 @@ export default function DashboardScreen() {
           <Text style={styles.progressTitle}>تقدمك اليوم</Text>
           <Text style={styles.progressPercent}>{progress}%</Text>
           <View style={styles.progressBarBg}>
-            <View style={[styles.progressBarFill, { width: `${progress}%` }]} />
+            {/* ✅ P3.2: Progress bar بأنيميشن */}
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 100],
+                    outputRange: ['0%', '100%'],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ]}
+            />
           </View>
           <View style={styles.progressFooter}>
             <Text style={styles.progressFooterText}>{completedCount} من {tasks.length} مهام</Text>
             <Text style={styles.progressFooterText}>النظام: {plan?.title || 'لا يوجد نظام نشط حالياً'}</Text>
           </View>
-          {/* رسالة تشجيعية عند الإنجاز الكامل */}
           {progress === 100 && tasks.length > 0 && (
             <View style={styles.celebrationBanner}>
               <Text style={styles.celebrationText}>🎉 عمل رائع! أنهيت كل مهام اليوم!</Text>
@@ -252,7 +276,7 @@ export default function DashboardScreen() {
           )}
         </View>
         <Text style={styles.sectionTitle}>جدول المهام</Text>
-        
+
         {tasks.length > 0 ? (
           tasks.map((task) => (
             <TouchableOpacity 
@@ -330,5 +354,8 @@ const styles = StyleSheet.create({
 
   emptyState: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', padding: 40, borderRadius: 30, borderWidth: 2, borderColor: '#F3F4F6', borderStyle: 'dashed', marginTop: 10 },
   emptyTitle: { fontSize: 20, fontWeight: '900', color: '#9CA3AF', marginTop: 15 },
-  emptySub: { fontSize: 14, color: '#D1D5DB', marginTop: 5, fontWeight: 'bold' }
+  emptySub: { fontSize: 14, color: '#D1D5DB', marginTop: 5, fontWeight: 'bold' },
+  // ✅ P2.7: CTA button في الـ empty state
+  emptyCtaBtn: { backgroundColor: '#2A4B46', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 18 },
+  emptyCtaText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
 });

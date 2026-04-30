@@ -332,7 +332,7 @@ export default function SupportScreen() {
     <SafeAreaView style={styles.chatContainer}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}>
         <View style={styles.chatHeader}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-forward" size={24} color="#1F2937" /></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color="#1F2937" /></TouchableOpacity>
           <View style={styles.headerTitleBox}>
             <Text style={styles.chatHeaderTitle}>خدمة العملاء</Text>
             {lastSeen && (

@@ -84,7 +84,7 @@ export default function FamilyScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-forward" size={24} color="#1F2937" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color="#1F2937" /></TouchableOpacity>
         <View style={styles.headerTitleBox}>
           <Text style={styles.title}>إدارة العائلة <Ionicons name="people" size={24} color="#F97316" /></Text>
           <Text style={styles.subtitle}>أضف وبدل بين أفراد عائلتك بسهولة</Text>

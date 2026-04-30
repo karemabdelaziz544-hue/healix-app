@@ -1,18 +1,29 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useFamily } from '../../src/context/FamilyContext';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { AppColors } from '../../constants/AppTheme';
 
 const { width } = Dimensions.get('window');
-const TAB_BAR_WIDTH = width - 40; 
-const TAB_WIDTH = TAB_BAR_WIDTH / 5; // ثابت على 5 تابات للحفاظ على التوازن
+const TAB_BAR_WIDTH = width - 40;
 
-function CustomTabBar({ state, descriptors, navigation }: any) {
+// ✅ الـ labels النصية الظاهرة تحت الأيقونة المفعلة
+const TAB_LABELS: Record<string, string> = {
+  index: 'الرئيسية',
+  chat: 'المحادثة',
+  medical: 'الطبي',
+  history: 'التاريخ',
+  profile: 'الحساب',
+};
+
+function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { currentProfile, switchProfile } = useFamily();
   const isSubAccount = currentProfile?.manager_id !== null && currentProfile?.manager_id !== undefined;
 
   const visibleRoutes = state.routes.filter((route: any) => route.name !== 'plan-details');
+  const TAB_WIDTH = TAB_BAR_WIDTH / visibleRoutes.length;
   const translateX = useRef(new Animated.Value(0)).current;
   const currentRouteName = state.routes[state.index].name;
   
@@ -27,7 +38,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
       bounciness: 12, 
       speed: 14,      
     }).start();
-  }, [safeActiveIndex]);
+  }, [safeActiveIndex, TAB_WIDTH]);
 
   const handleSwitchBack = async () => {
     if (currentProfile?.manager_id) {
@@ -87,9 +98,15 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
           >
             <Ionicons 
               name={iconName} 
-              size={26} 
-              color={isFocused ? '#FFF' : (route.name === 'profile' && isSubAccount ? '#F97316' : '#9CA3AF')} 
+              size={isFocused ? 24 : 26} 
+              color={isFocused ? '#FFF' : (route.name === 'profile' && isSubAccount ? AppColors.accent : AppColors.tabInactive)} 
             />
+            {/* ✅ Label نصي يظهر فقط تحت الأيقونة المفعلة */}
+            {isFocused && (
+              <Text style={styles.tabLabel}>
+                {route.name === 'profile' && isSubAccount ? 'تبديل' : (TAB_LABELS[route.name] || '')}
+              </Text>
+            )}
           </TouchableOpacity>
         );
       })}
@@ -122,12 +139,12 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     height: 70,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AppColors.surface,
     borderRadius: 40,
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 10,
-    shadowColor: '#2A4B46',
+    shadowColor: AppColors.primary,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -139,14 +156,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1, 
   },
+  // ✅ Label صغير تحت الأيقونة المفعلة
+  tabLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFF',
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
   slidingIndicator: {
     position: 'absolute',
     width: INDICATOR_SIZE,
     height: INDICATOR_SIZE,
     borderRadius: INDICATOR_SIZE / 2,
-    backgroundColor: '#2A4B46',
-    // حساب ديناميكي: المركز = (عرض التاب - عرض المؤشر) / 2
-    left: (TAB_WIDTH - INDICATOR_SIZE) / 2, 
+    backgroundColor: AppColors.primary,
+    // ✅ نستخدم alignSelf للتمركز الصحيح بدل left ثابت
+    left: (TAB_BAR_WIDTH / 5 - INDICATOR_SIZE) / 2,
     zIndex: 0, 
     elevation: 8,
   },

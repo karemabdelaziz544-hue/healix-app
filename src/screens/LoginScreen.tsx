@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { handleError } from '../lib/errorHandler';
+import { showToast } from '../../components/AppToast';
+import { AppColors } from '../../constants/AppTheme';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -55,7 +57,8 @@ export default function LoginScreen() {
     if (error) {
       handleError(error, 'ResetPassword');
     } else {
-      Alert.alert('تم', 'تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني');
+      // ✅ Toast بدل Alert.alert للرسائل الإيجابية
+      showToast.success('تم إرسال رابط استعادة كلمة المرور إلى بريدك الإلكتروني');
     }
   };
 
@@ -84,6 +87,8 @@ export default function LoginScreen() {
             keyboardType="email-address" 
             autoCapitalize="none" 
           />
+          {/* ✅ P2.4: hint يوضح للمستخدم إن الإيميل مطلوب لاسترجاع كلمة المرور */}
+          <Text style={styles.emailHint}>اكتب إيميلك أولاً لاستخدام خاصية نسيت كلمة المرور</Text>
         </View>
         
         <View style={styles.inputGroup}>
@@ -139,17 +144,20 @@ const styles = StyleSheet.create({
 
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 14, fontWeight: 'bold', color: '#4B5563', textAlign: 'right', marginBottom: 8 },
-  input: { backgroundColor: '#F3F4F6', height: 55, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 15, color: '#1F2937' },
+  // ✅ P3.1: موحد على 55px مع Signup
+  input: { backgroundColor: AppColors.inputBg, height: 55, borderRadius: 15, paddingHorizontal: 15, textAlign: 'right', fontSize: 15, color: AppColors.textPrimary },
+  // ✅ P2.4: hint نص تحت الإيميل
+  emailHint: { fontSize: 11, color: AppColors.textMuted, textAlign: 'right', marginTop: 5, fontWeight: 'bold' },
   
   passwordHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  forgotPasswordText: { fontSize: 12, color: '#F97316', fontWeight: 'bold' },
-  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', height: 55, borderRadius: 15 },
+  forgotPasswordText: { fontSize: 12, color: AppColors.accent, fontWeight: 'bold' },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: AppColors.inputBg, height: 55, borderRadius: 15 },
   eyeIcon: { padding: 15 },
 
-  submitBtn: { backgroundColor: '#2A4B46', height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  submitBtn: { backgroundColor: AppColors.primary, height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   submitBtnText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
 
   footer: { flexDirection: 'row-reverse', justifyContent: 'center', marginTop: 25 },
-  footerText: { color: '#6B7280', fontSize: 15, fontWeight: 'bold' },
-  signupLink: { color: '#F97316', fontSize: 15, fontWeight: '900' },
+  footerText: { color: AppColors.textSecondary, fontSize: 15, fontWeight: 'bold' },
+  signupLink: { color: AppColors.accent, fontSize: 15, fontWeight: '900' },
 });

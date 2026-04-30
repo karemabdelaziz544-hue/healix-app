@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../src/lib/supabase';
 import { useFamily } from '../src/context/FamilyContext';
+import { AppColors } from '../constants/AppTheme';
 import type { AppNotification } from '../src/types';
 
 export default function NotificationsScreen() {
@@ -12,6 +13,7 @@ export default function NotificationsScreen() {
   const { currentProfile } = useFamily();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (currentProfile?.id) {
@@ -20,7 +22,7 @@ export default function NotificationsScreen() {
     }
   }, [currentProfile?.id]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     const { data } = await supabase
       .from('notifications')
       .select('*')
@@ -29,7 +31,14 @@ export default function NotificationsScreen() {
     
     setNotifications(data || []);
     setLoading(false);
-  };
+  }, [currentProfile?.id]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    await markAsRead();
+    setRefreshing(false);
+  }, [fetchNotifications]);
 
   const markAsRead = async () => {
     await supabase
@@ -94,7 +103,7 @@ export default function NotificationsScreen() {
       
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="chevron-forward" size={24} color="#1F2937" />
+          <Ionicons name="chevron-back" size={24} color="#1F2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>الإشعارات</Text>
         <View style={{ width: 40 }} />
@@ -103,7 +112,8 @@ export default function NotificationsScreen() {
       <SectionList
         sections={groupedNotifications}
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, groupedNotifications.length === 0 && styles.listEmpty]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={AppColors.primary} colors={[AppColors.primary, AppColors.accent]} />}
         renderSectionHeader={({ section: { title } }) => (
           <Text style={styles.sectionHeader}>{title}</Text>
         )}
@@ -140,21 +150,24 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9F6F0' },
+  container: { flex: 1, backgroundColor: AppColors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', backgroundColor: '#FFF' },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '900', color: '#1F2937' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: AppColors.border, backgroundColor: AppColors.surface },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: AppColors.inputBg, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 20, fontWeight: '900', color: AppColors.textPrimary },
   listContent: { padding: 20 },
-  notificationCard: { flexDirection: 'row-reverse', backgroundColor: '#FFF', padding: 15, borderRadius: 20, marginBottom: 15, elevation: 1, alignItems: 'center' },
-  unreadCard: { backgroundColor: '#F0FDF4', borderColor: '#D1FAE5', borderWidth: 1 },
-  iconBox: { width: 50, height: 50, backgroundColor: '#F3F4F6', borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
+  listEmpty: { flexGrow: 1 },
+  notificationCard: { flexDirection: 'row-reverse', backgroundColor: AppColors.surface, padding: 15, borderRadius: 20, marginBottom: 15, elevation: 1, alignItems: 'center' },
+  unreadCard: { backgroundColor: AppColors.successBg, borderColor: AppColors.successLight, borderWidth: 1 },
+  iconBox: { width: 50, height: 50, backgroundColor: AppColors.inputBg, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginLeft: 15 },
   textContent: { flex: 1, alignItems: 'flex-end' },
-  title: { fontSize: 15, fontWeight: 'bold', color: '#1F2937', marginBottom: 3 },
-  message: { fontSize: 13, color: '#6B7280', textAlign: 'right', marginBottom: 5 },
-  time: { fontSize: 11, color: '#9CA3AF', fontWeight: 'bold' },
-  unreadDot: { width: 10, height: 10, backgroundColor: '#10B981', borderRadius: 5, marginRight: 10 },
-  emptyBox: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
-  emptyText: { fontSize: 16, color: '#9CA3AF', fontWeight: 'bold', marginTop: 15 },
+  title: { fontSize: 15, fontWeight: 'bold', color: AppColors.textPrimary, marginBottom: 3 },
+  message: { fontSize: 13, color: AppColors.textSecondary, textAlign: 'right', marginBottom: 5 },
+  time: { fontSize: 11, color: AppColors.textMuted, fontWeight: 'bold' },
+  unreadDot: { width: 10, height: 10, backgroundColor: AppColors.success, borderRadius: 5, marginRight: 10 },
+  // ✅ P2.5: Empty State محسّن
+  emptyBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
+  emptyTitle: { fontSize: 18, color: AppColors.textMuted, fontWeight: '900', marginTop: 15 },
+  emptyText: { fontSize: 14, color: AppColors.border, fontWeight: 'bold', marginTop: 6 },
   sectionHeader: { fontSize: 16, fontWeight: '900', color: '#4B5563', textAlign: 'right', marginBottom: 10, marginTop: 5 },
 });

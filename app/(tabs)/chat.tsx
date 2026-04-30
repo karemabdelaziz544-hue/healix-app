@@ -12,6 +12,8 @@ import { useFamily } from '../../src/context/FamilyContext';
 import { useSubscriptionGuard } from '../../hooks/useSubscriptionGuard';
 import ExpiredState from '../../components/ExpiredState';
 import type { Message } from '../../src/types';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+import { AppColors } from '../../constants/AppTheme';
 
 // 🌟 مُشغل المرفقات الداخلي (صور - فويس - ملفات)
 const InlineAttachment = ({ path, type, isMe }: { path: string, type: string, isMe: boolean }) => {
@@ -125,6 +127,7 @@ export default function ChatScreen() {
   const { isSubscribed, isGuardLoading } = useSubscriptionGuard();
 
   const activeChannel = 'doctor';
+  const { isConnected } = useNetworkStatus();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [receiverId, setReceiverId] = useState<string | null>(null);
@@ -151,10 +154,10 @@ export default function ChatScreen() {
   }, []);
 
   useEffect(() => {
-    if (currentUserId && !receiverId) {
+    if (currentUserId) {
       openChat('doctor');
     }
-  }, [currentUserId, receiverId]);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!activeChannel || !receiverId || !currentUserId) return;
@@ -352,7 +355,7 @@ export default function ChatScreen() {
             messages.map((msg, index) => {
               const isMe = msg.sender_id === currentUserId;
               return (
-                <View key={index} style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.theirMessageWrapper]}>
+                <View key={msg.id} style={[styles.messageWrapper, isMe ? styles.myMessageWrapper : styles.theirMessageWrapper]}>
                   <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
                     
                     {/* تأمين عرض النصوص */}
@@ -386,6 +389,13 @@ export default function ChatScreen() {
         </ScrollView>
 
         <View style={[styles.inputArea, !isKeyboardVisible && { paddingBottom: Platform.OS === 'ios' ? 90 : 80 }]}>
+          {/* ✅ P2.6: Offline banner داخل الشات */}
+          {!isConnected && (
+            <View style={styles.offlineBar}>
+              <Ionicons name="cloud-offline-outline" size={16} color="#FFF" />
+              <Text style={styles.offlineBarText}>لا يوجد اتصال بالإنترنت — لا يمكن الإرسال</Text>
+            </View>
+          )}
           {attachment ? (
             <View style={styles.previewBox}>
               <Text numberOfLines={1} style={styles.previewText}>{attachment.name}</Text>
@@ -394,7 +404,7 @@ export default function ChatScreen() {
           ) : null}
 
           <View style={styles.inputRow}>
-            <TouchableOpacity style={styles.iconBtn} onPress={handleAttachmentClick} disabled={uploading || !!recording}>
+            <TouchableOpacity style={styles.iconBtn} onPress={handleAttachmentClick} disabled={uploading || !!recording || !isConnected}>
               <Ionicons name="attach" size={28} color="#6B7280" />
             </TouchableOpacity>
             
@@ -412,7 +422,7 @@ export default function ChatScreen() {
             )}
 
             {(newMessage.trim().length > 0 || attachment) ? (
-              <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} disabled={uploading}>
+              <TouchableOpacity style={[styles.sendBtn, !isConnected && { opacity: 0.4 }]} onPress={sendMessage} disabled={uploading || !isConnected}>
                 {uploading ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="send" size={20} color="#FFF" />}
               </TouchableOpacity>
             ) : (
@@ -473,6 +483,10 @@ const styles = StyleSheet.create({
   sendBtn: { width: 45, height: 45, backgroundColor: '#2A4B46', borderRadius: 25, justifyContent: 'center', alignItems: 'center', transform: [{ rotate: '180deg' }] },
   micBtn: { padding: 5 },
   recordingBtn: { backgroundColor: '#EF4444', borderRadius: 25, padding: 10 },
+
+  // \u2705 P2.6: Offline State Bar
+  offlineBar: { flexDirection: 'row-reverse', alignItems: 'center', gap: 8, backgroundColor: '#EF4444', paddingHorizontal: 15, paddingVertical: 8 },
+  offlineBarText: { color: '#FFF', fontSize: 12, fontWeight: 'bold', flex: 1, textAlign: 'right' },
 
   // 🎙️ شريط التسجيل المباشر
   recordingBar: { flex: 1, flexDirection: 'row-reverse', alignItems: 'center', backgroundColor: '#FEF2F2', borderRadius: 25, marginHorizontal: 10, paddingHorizontal: 15, height: 45, gap: 10 },

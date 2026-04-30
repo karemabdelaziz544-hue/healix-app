@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, I18nManager } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/lib/supabase';
@@ -9,6 +9,10 @@ import { useSubscriptionGuard } from '../../hooks/useSubscriptionGuard';
 import ExpiredState from '../../components/ExpiredState';
 import Skeleton from '../../components/Skeleton';
 import type { Plan } from '../../src/types';
+
+// ✅ أيقونة الـ chevron دائماً تشير لليسار كما طلب المستخدم
+const chevronIcon = 'chevron-back';
+
 
 export default function HistoryScreen() {
   const { currentProfile } = useFamily();
@@ -98,7 +102,7 @@ export default function HistoryScreen() {
                   <View style={[styles.taskCountBadge, isCurrent && styles.taskCountBadgeCurrent]}>
                     <Text style={[styles.taskCountText, isCurrent && styles.taskCountTextCurrent]}>{taskCount} مهمة</Text>
                   </View>
-                  <Ionicons name="chevron-back" size={20} color={isCurrent ? "#F97316" : "#9CA3AF"} />
+                  <Ionicons name={chevronIcon as any} size={20} color={isCurrent ? "#F97316" : "#9CA3AF"} />
                 </View>
 
                 <View style={styles.cardRight}>

@@ -8,8 +8,9 @@ import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import Skeleton from '../components/Skeleton';
 import type { PaymentRequest } from '../src/types';
+import { SubscriptionConfig } from '../constants/subscriptionConfig';
+import { showToast } from '../components/AppToast';
 
-const PRICING = { base: 500, extra: 150 };
 
 export default function SubscriptionsScreen() {
   const router = useRouter();
@@ -69,7 +70,7 @@ export default function SubscriptionsScreen() {
                    new Date(currentProfile.subscription_end_date) > new Date();
                    
   const isSubAccount = currentProfile?.manager_id !== null;
-  const totalPrice = PRICING.base + (newSubCount * PRICING.extra);
+  const totalPrice = SubscriptionConfig.calculateTotal(newSubCount);
 
   const handleNextStep = () => {
     if (step === 1) {
@@ -143,7 +144,8 @@ export default function SubscriptionsScreen() {
 
       if (dbError) throw dbError;
 
-      Alert.alert("نجاح", "تم إرسال طلبك بنجاح! سيتم مراجعته وتفعيل الباقة قريباً.");
+      // ✅ Toast بدل Alert.alert
+      showToast.success('تم إرسال طلبك بنجاح!', 'سيتم مراجعته وتفعيل الباقة قريباً');
       setShowRenewForm(false);
       setStep(1);
       fetchData(); 
@@ -179,7 +181,7 @@ export default function SubscriptionsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-forward" size={28} color="#1F2937" /></TouchableOpacity>
+          <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={28} color="#1F2937" /></TouchableOpacity>
         </View>
         <View style={styles.alertContainer}>
           <View style={styles.alertIconBox}>
@@ -208,7 +210,7 @@ export default function SubscriptionsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-forward" size={24} color="#1F2937" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}><Ionicons name="arrow-back" size={24} color="#1F2937" /></TouchableOpacity>
         <View style={styles.headerTitleBox}>
           <Text style={styles.title}>إدارة الاشتراك</Text>
           <Text style={styles.subtitle}>تحكم في باقة عائلة هيليكس</Text>
